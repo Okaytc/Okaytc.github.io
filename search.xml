@@ -4,6 +4,31 @@
   
     
     <entry>
+      <title>java安全|初识反序列化</title>
+      <link href="/2022/09/27/java%E5%AE%89%E5%85%A8-%E5%88%9D%E8%AF%86%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/"/>
+      <url>/2022/09/27/java%E5%AE%89%E5%85%A8-%E5%88%9D%E8%AF%86%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/</url>
+      
+        <content type="html"><![CDATA[<h2 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h2><p>学习java基础知识记录，方便查阅。</p><h2 id="0x01、反序列化是什么？有什么用？"><a href="#0x01、反序列化是什么？有什么用？" class="headerlink" title="0x01、反序列化是什么？有什么用？"></a>0x01、反序列化是什么？有什么用？</h2><blockquote><p>  Java 提供了一种对象序列化的机制，该机制中，一个对象可以被表示为一个字节序列，该字节序列包括该对象的数据、有关对象的类型的信息和存储在对象中数据的类型。将序列化对象写入文件之后，可以从文件中读取出来，并且对它进行反序列化，也就是说，对象的类型信息、对象的数据，还有对象中的数据类型可以用来在内存中新建对象。 </p></blockquote><p>java序列化会更有利于传输，它的速度会更快，并且也会更安全，被调用方序列化，调用方反序列化即能够得到传输之前的最原始的java对象，常常用来做不同进程之间的对象传输。能够更加便于储存，不论是存储成文件又或者是存储成数据库都是可以的，存储成文件，下次要用可以直接反序列拿到对象。</p><h2 id="0x02、反序列化如何实现"><a href="#0x02、反序列化如何实现" class="headerlink" title="0x02、反序列化如何实现"></a>0x02、反序列化如何实现</h2><p>实现方法：通过该对象所处类实现<font color=red>Serializable</font>接口，调用<font color=red>writeObject()</font>方法序列化、<font color=red>readObject()</font>方法反序列化分别对对象进行数据转换的写入和读取。</p><p><font color=red>writeObject()</font>序列化：将java对象转换成java字节序列、json、xml等数据格式的过程，利用ObjectOutputStream流接口把对象序列化数据写入文件。<br><font color=red>readObject()</font>反序列化：将java字节序列、json、xml等数据格式还原成java对象的过程，利用ObjectInputStream流接口把序列化文件读取并恢复成对象。</p><p>一个类的对象要想序列化成功，必须满足两个条件：<br>1、该类必须实现 java.io.Serializable 接口。<br>2、该类的所有属性必须是可序列化的。如果有一个属性不是可序列化的，则该属性必须注明是短暂的。<br>注：不可序列化的属性：带static修饰（静态变量）和transient修饰（临时变量）的属性，对于transient属性序列化机制会跳过而不会将其写入文件，但在读取时也不可恢复，该属性值保持默认初始化值。</p><h2 id="0x03、反序列化代码实现demo"><a href="#0x03、反序列化代码实现demo" class="headerlink" title="0x03、反序列化代码实现demo"></a>0x03、反序列化代码实现demo</h2><p>新建java项目，创建pack包，新建java程序，不赘述了。</p><h3 id="类对象："><a href="#类对象：" class="headerlink" title="类对象："></a>类对象：</h3><p>创建people类，并实现<font color=red>Serializable</font>接口<br><img src="/%22/img/java-1/classpeople.png%22" alt="people类"></p><h3 id="序列化："><a href="#序列化：" class="headerlink" title="序列化："></a>序列化：</h3><p>创建demo类，实现对people类对象调用并实例化输出<br><img src="/%22/img/java-1/ser.png%22" alt="序列化过程"><br>查看输出txt为序列化数据<br><img src="/%22/img/java-1/sertxt.png%22" alt="序列化结果"><br>生成的数据文件为16进制，乱码显示以  sr开头</p><blockquote><p>  java原生序列化的16进制是以aced00057372开头、base64编码是以rO0ABXNy开头</p></blockquote><h3 id="反序列化："><a href="#反序列化：" class="headerlink" title="反序列化："></a>反序列化：</h3><p>创建unser类，实现对序列化文件进行反序列化读取并输出。<br><img src="/%22/img/java-1/unser.png%22" alt="序列化结果"></p><p>以上过程为一个简单的序列化与反序列化的过程。</p><h2 id="0x04、安全成因"><a href="#0x04、安全成因" class="headerlink" title="0x04、安全成因"></a>0x04、安全成因</h2><p>与其说是漏洞成因，不妨说是安全成因，单从上述的反序列化过程似乎没发现怎么变成常谈的java反序列化漏洞，既然是反序列化漏洞，那重点就在反序列化上，即readObject()方法;<br>学习总结的漏洞成因要素：<br>1、readObject()方法被重写，当实现Servializable类并重写了readObject()方法，系统执行反序列化时会调用重写的readObject()方法。<br>2、重写的readObject()方法含有危险方法，如方法中直接执行Runtime.getRuntime().exec();<br>3、重写的readObject()方法中存在调用其它类的可控变量并执行危险函数。<br>4、套娃3步骤，调用其它类中变量再次调用另外一个类中的方法。#可以理解为常说的gadget链，通俗点说就是漏洞利用链。</p><h3 id="案例demo-1"><a href="#案例demo-1" class="headerlink" title="案例demo-1"></a>案例demo-1</h3><p><strong>重写readObject方法并直接执行危险函数</strong><br>实现Servializable类的实例类重写了readObject()方法，readObject()方法执行了危险函数。<br><img src="/%22/img/java-1/anli-1.png%22" alt="readObject方法重写"><br>这是执行反序列化步骤 发现危险函数被执行<br><img src="/%22/img/java-1/anli-2.png%22" alt="危险函数被执行"><br>通过调试可以认证这点<br>在调用readObject()方法处下断点<br><img src="/%22/img/java-1/anli-3.png%22" alt="调试"><br>可看到调用重写的readObject()方法<br><img src="/%22/img/java-1/anli-3-1.png%22" alt="调试"></p><h3 id="案例demo-2"><a href="#案例demo-2" class="headerlink" title="案例demo-2"></a>案例demo-2</h3><p><strong>重写readObject方法，方法中调用了其他类中的危险方法</strong><br>新建立一个exec类，其中exec类使用了危险函数。<br><img src="/%22/img/java-1/anli-4-1.png%22" alt="exec类"><br>重写readObject方法，方法中调用了exec类对象。<br><img src="/%22/img/java-1/anli-4-2.png%22" alt="readObject方法重写"><br>同样运行反序列化操作，同样实现了反序列化漏洞，执行了命令<br><img src="/%22/img/java-1/anli-4-3.png%22" alt="readObject方法重写"></p><p>上诉案例仅提供漏洞造成原理思路，实际漏洞调用链远比其复杂。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> Java安全 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Java安全 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Hello World</title>
       <link href="/2022/09/24/hello-world/"/>
       <url>/2022/09/24/hello-world/</url>
