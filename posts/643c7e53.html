@@ -315,6 +315,27 @@
         
 
 
+  <script src='//unpkg.com/valine/dist/Valine.min.js'></script>
+
+  <div id="vcomments"></div>
+
+  <script>
+    new Valine({
+      el: '#vcomments',
+      appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+      appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+      placeholder: 'Please leave your footprints p',
+      avatar: 'monsterid',
+      lang: 'zh-CN'
+    })
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
 
 
 
