@@ -133,7 +133,7 @@
 </blockquote>
 <p>目前 Collections 包有两个 commons-collections 和commons-collections4，commons-collections 最新版本是3.2.2，3系列版本也是只有3.2.2是安全的，不支持泛型，目前官方已不在维护。collections4 目前最新版本是4.4，其中4.0是存在漏洞，最低要求 Java8 以上。相对于 collections 来说完全支持 Java8 的特性并且支持泛型，该版本无法兼容旧有版本，于是为了避免冲突改名为 collections4。推荐直接使用该版本。（注：两个版本可以共存，使用时需要注意）</p>
 <p>CC1链分为两条链，一条为<code>TransformedMap</code>(也是最初的CC1链)，一条为<code>LazyMap</code>，其中有的分析把<code>TransformedMap</code>链单独分出来作为CC链，把<code>LazyMap</code>链作为CC1链。也可以作为CC1的两条链，一起学习下。</p>
-<h1 id="0x02、环境准备"><a href="#0x02、环境准备" class="headerlink" title="0x02、环境准备"></a>0x02、环境准备</h1><p>java版本：jdk8u66(cc1链要求java版本小于jdk8u71,不得不说这个版本确实有点老了)<br></n><br>jdk官方下载链接：<a target="_blank" rel="noopener" href="https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html%EF%BC%8C%E6%89%BE%E5%88%B0%E5%AF%B9%E5%BA%94%E7%89%88%E6%9C%AC%E4%BD%8E%E4%BA%8E8u71%E7%9A%84%E5%B0%B1%E8%A1%8C%E3%80%82">https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html，找到对应版本低于8u71的就行。</a></p>
+<h1 id="0x02、环境准备"><a href="#0x02、环境准备" class="headerlink" title="0x02、环境准备"></a>0x02、环境准备</h1><p>java版本：jdk8u66(cc1链要求java版本小于jdk8u71,不得不说这个版本确实有点老了)<br><br>jdk官方下载链接：<a target="_blank" rel="noopener" href="https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html%EF%BC%8C%E6%89%BE%E5%88%B0%E5%AF%B9%E5%BA%94%E7%89%88%E6%9C%AC%E4%BD%8E%E4%BA%8E8u71%E7%9A%84%E5%B0%B1%E8%A1%8C%E3%80%82">https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html，找到对应版本低于8u71的就行。</a></p>
 <p><strong>添加Maven项目</strong><br>新建Maven项目——&gt;pom.xml添加Commons Collections组件依赖,3系列除3.2.2版本外，其余均收该漏洞影响，添加3系列其中一个版本即可</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">&lt;dependencies&gt;</span><br><span class="line">    &lt;dependency&gt;</span><br><span class="line">        &lt;groupId&gt;commons-collections&lt;/groupId&gt;</span><br><span class="line">        &lt;artifactId&gt;commons-collections&lt;/artifactId&gt;</span><br><span class="line">        &lt;version&gt;<span class="number">3.2</span><span class="number">.1</span>&lt;/version&gt;</span><br><span class="line">    &lt;/dependency&gt;</span><br><span class="line">&lt;/dependencies&gt;</span><br></pre></td></tr></table></figure>
 <p><img src="/posts/dd664be3/cc1-1.png" title="maven环境"></p>
@@ -160,9 +160,9 @@
 <h2 id="ConstantTransformer"><a href="#ConstantTransformer" class="headerlink" title="ConstantTransformer"></a>ConstantTransformer</h2><p>&#x2F;&#x2F;我理解为 对象转换类<br>这里定义了一个<code>iConstant</code>对象<br><code>private final Object iConstant;</code></p>
 <p><img src="/posts/dd664be3/cc1-9.png" title="ConstantTransformer类"></p>
 <p>作用就是接受任何传进来的对象，并转换成定义的<code>iConstant</code>对象返回，相对起来很好理解。</p>
-<h2 id="InvokerTransformer"><a href="#InvokerTransformer" class="headerlink" title="InvokerTransformer"></a>InvokerTransformer</h2><p>&#x2F;&#x2F;我理解为 调用转换类<br><code>InvokerTransformer</code>类的作用为获取调用的<font color=red>方法名</font>、<font color=red>参数类型</font>、<font color=red>函数的参数列表</font></p>
+<h2 id="InvokerTransformer"><a href="#InvokerTransformer" class="headerlink" title="InvokerTransformer"></a>InvokerTransformer</h2><p>&#x2F;&#x2F;我理解为 调用转换类<br><code>InvokerTransformer</code>类的作用为获取调用的<font color="red">方法名</font>、<font color="red">参数类型</font>、<font color="red">函数的参数列表</font></p>
 <p><img src="/posts/dd664be3/cc1-10.png" title="InvokerTransformer"></p>
-<p>调用的<code>transform</code>获取了<font color=red>对象的类，方法、并返回执行方法，类、方法</font>、<font color=red>参数均为输入的对象，可控</font>，因此该类是cc1链的最重点的执行部分。</p>
+<p>调用的<code>transform</code>获取了<font color="red">对象的类，方法、并返回执行方法，类、方法</font>、<font color="red">参数均为输入的对象，可控</font>，因此该类是cc1链的最重点的执行部分。</p>
 <p><img src="/posts/dd664be3/cc1-11.png" title="InvokerTransformer"></p>
 <p>通过正常反射执行<code>Runtime.exec()</code>方法</p>
 <p><img src="/posts/dd664be3/cc1-12.png" title="正常反射执行exec"></p>
@@ -196,7 +196,7 @@
 <p><img src="/posts/dd664be3/cc1-21.png" title="put方法"></p>
 <p>利用思路：<br>因为<code>TransformedMap</code>中构造函数、<code>transformKey</code>、<code>transformValue</code>方法都是<code>protected</code>受保护的，无法直接声明使用，但可调用<code>decorate</code>公共方法进行回调向构造方法传参，通过<code>transformKey</code>或者<code>transformValue</code>传递其中任意一个参数为<code>InvokerTransformer</code>对象，最后通过<code>TransformedMap</code>的<code>put</code>方法传入恶意函数对象达到执行命令。<br>即：<br>第一步，创建构造参数（<code>Map</code>的对象、<code>Transformer</code>的两个对象分别为<code>key</code>、<code>value</code>），其中key或者value可以随意创造其中一个为<code>InvokerTransformer</code>类对象即可<br>第二步，通过<code>decorate</code>公共方法调用构造方法创建<code>TransformedMap</code>对象<br>第三步，调用<code>TransformedMap</code>的<code>put</code>方法，传递恶意函数对象，对其中key和value参数随便传入一个即可<br>利用方法：</p>
 <p><img src="/posts/dd664be3/cc1-22.png" title="利用"></p>
-<p>但上面这两个方法都在本类Put方法进行调用，也未在其他类中进行调用，同时使用到了<code>InvokerTransformer</code>、<code>Map</code>两个类的对象，因此无法通过readObject反序列化达到命令执行的目的。<br><font color=red>注：反序列化的序列化对象只能为单个对象，无法对多个对象进行序列化。</font></p>
+<p>但上面这两个方法都在本类Put方法进行调用，也未在其他类中进行调用，同时使用到了<code>InvokerTransformer</code>、<code>Map</code>两个类的对象，因此无法通过readObject反序列化达到命令执行的目的。<br><font color="red">注：反序列化的序列化对象只能为单个对象，无法对多个对象进行序列化。</font></p>
 <p>接下来看第三个方法：<code>checkSetValue(Object value)</code></p>
 <p><img src="/posts/dd664be3/cc1-23.png" title="checkSetValue方法"></p>
 <p>同样也是返回构造方法传入的<code>Transformer valueTransformer</code>，然后调用<code>transform(Object)</code>，但是由于是<code>protected</code>受保护，因此无法像另外两个方法一样直接调用。<br>再看该方法有没有其他类对其调用</p>

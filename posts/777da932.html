@@ -121,7 +121,7 @@
       </div>
       <div class="markdown-body">
         <h2 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h2><p>一次恶意扫描触发的告警，溯源排查攻击源IP，简单记一下这次的溯源排查流程。</p>
-<h2 id="0x01、告警"><a href="#0x01、告警" class="headerlink" title="0x01、告警"></a>0x01、告警</h2><p>可以看是<font color=red>同一时间</font>的告警，受害IP为该C段下的三台业务服务器，触发的三条告警，可直接判断为<font color=red>恶意扫描</font>。</p>
+<h2 id="0x01、告警"><a href="#0x01、告警" class="headerlink" title="0x01、告警"></a>0x01、告警</h2><p>可以看是<font color="red">同一时间</font>的告警，受害IP为该C段下的三台业务服务器，触发的三条告警，可直接判断为<font color="red">恶意扫描</font>。</p>
 <p><img src="/posts/777da932/gj-1.png" title="告警"> </p>
 <p>查看攻击流量http报文，可看到phpstudy的后门利用payload，排除误报。</p>
 <p><img src="/posts/777da932/gj-2.png" title="告警报文"><br><img src="/posts/777da932/gj-3.png" title="告警payload"> </p>

@@ -122,10 +122,10 @@
       <div class="markdown-body">
         <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>学习java基础知识记录，方便查阅。</p>
 <h1 id="0x01、反射基础"><a href="#0x01、反射基础" class="headerlink" title="0x01、反射基础"></a>0x01、反射基础</h1><h2 id="一、反射概念"><a href="#一、反射概念" class="headerlink" title="一、反射概念"></a>一、反射概念</h2><blockquote>
-<p>java执行分为<font color=red>编译期</font>和<font color=red>运行期</font><br><font color=red>编译期</font>是指把源码交给编译器编译成计算机可以执行的文件的过程。在 Java 中也就是把 Java 代码编成 class 文件的过程。编译期只是做了一些翻译功能，并没有把代码放在内存中运行起来，而只是把代码当成文本进行操作，比如检查错误。</p>
-<p><font color=red>运行期</font>是把编译后的文件交给计算机执行，直到程序运行结束。所谓运行期就把在磁盘中的代码放到内存中执行起来。</p>
+<p>java执行分为<font color="red">编译期</font>和<font color="red">运行期</font><br><font color="red">编译期</font>是指把源码交给编译器编译成计算机可以执行的文件的过程。在 Java 中也就是把 Java 代码编成 class 文件的过程。编译期只是做了一些翻译功能，并没有把代码放在内存中运行起来，而只是把代码当成文本进行操作，比如检查错误。</p>
+<p><font color="red">运行期</font>是把编译后的文件交给计算机执行，直到程序运行结束。所谓运行期就把在磁盘中的代码放到内存中执行起来。</p>
 </blockquote>
-<p>Java 反射机制是在<font color=red>运行状态</font>中，对于任意一个类，都能够知道这个类的所有属性和方法；对于任意一个对象，都能够调用它的任意方法和属性；这种动态获取信息以及动态调用对象方法的功能称为 Java 语言的反射机制。简单来说，反射机制指的是程序在运行时能够获取自身的信息。在 Java 中，只要给定类的名字，就可以通过反射机制来获得类的所有信息。</p>
+<p>Java 反射机制是在<font color="red">运行状态</font>中，对于任意一个类，都能够知道这个类的所有属性和方法；对于任意一个对象，都能够调用它的任意方法和属性；这种动态获取信息以及动态调用对象方法的功能称为 Java 语言的反射机制。简单来说，反射机制指的是程序在运行时能够获取自身的信息。在 Java 中，只要给定类的名字，就可以通过反射机制来获得类的所有信息。</p>
 <p><strong>Java 反射机制主要提供了以下功能，这些功能都位于<code>java.lang.reflect</code>包。</strong></p>
 <ul>
 <li>在运行时判断任意一个对象所属的类。</li>
@@ -140,18 +140,18 @@
 <p><img src="/posts/7a787d86/jc-4.png" title="反射实现"></p>
 <p><strong>Java反射机制的优缺点</strong><br>优点：</p>
 <ul>
-<li>能够运行时<font color=red>动态获取类的实例</font>，大大提高系统的<font color=red>灵活性</font>和<font color=red>扩展性</font>。</li>
+<li>能够运行时<font color="red">动态获取类的实例</font>，大大提高系统的<font color="red">灵活性</font>和<font color="red">扩展性</font>。</li>
 <li>与Java动态编译相结合，可以实现无比强大的功能。</li>
 <li>降低代码程序之间的依赖性。</li>
 <li>对于Java这种先编译再运行的语言，能够让我们很方便的创建灵活的代码，这些代码可以在运行时装配，无需在组件之间进行源代码的链接，更加容易实现面向对象。</li>
 </ul>
 <p>缺点：</p>
 <ul>
-<li>反射会<font color=red>消耗一定的系统资源</font>，因此，如果不需要动态地创建一个对象，那么就不需要用反射；</li>
+<li>反射会<font color="red">消耗一定的系统资源</font>，因此，如果不需要动态地创建一个对象，那么就不需要用反射；</li>
 <li>冗余了很多代码量。</li>
 <li>反射调用方法时可以忽略权限检查，获取这个类的私有方法和属性，因此可能会破坏类的封装性而导致安全问题。</li>
 </ul>
-<h2 id="二、反射实现"><a href="#二、反射实现" class="headerlink" title="二、反射实现"></a>二、反射实现</h2><h3 id="1、总结简述"><a href="#1、总结简述" class="headerlink" title="1、总结简述"></a>1、总结简述</h3><font color=red>
+<h2 id="二、反射实现"><a href="#二、反射实现" class="headerlink" title="二、反射实现"></a>二、反射实现</h2><h3 id="1、总结简述"><a href="#1、总结简述" class="headerlink" title="1、总结简述"></a>1、总结简述</h3><font color="red">
 
 <p><strong>1、通过Class类获取类。</strong><br><strong>2、通过newInstance()对类进行实例化。</strong><br><strong>3、通过Field访问成员变量|通过Method访问成员方法|通过Constructor访问成员构造方法</strong></p>
 </font>
@@ -182,7 +182,7 @@
 <td align="left">代表字节码中的属性字节码。代表类中的成员变量（静态变量+实例变量）。</td>
 </tr>
 </tbody></table>
-<p><font color=red>必须通过Class获取类过后才能获取Method、Constructor、Field</font><br>也就是说Class是反射实现的前提。且Class并不是new出来的，而是java内置的。</p>
+<p><font color="red">必须通过Class获取类过后才能获取Method、Constructor、Field</font><br>也就是说Class是反射实现的前提。且Class并不是new出来的，而是java内置的。</p>
 <h3 id="2、Class访问类"><a href="#2、Class访问类" class="headerlink" title="2、Class访问类"></a>2、Class访问类</h3><p><strong>Class获取方式</strong></p>
 <table>
 <thead>

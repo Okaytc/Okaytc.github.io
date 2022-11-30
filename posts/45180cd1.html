@@ -125,11 +125,11 @@
 <p>  Java 提供了一种对象序列化的机制，该机制中，一个对象可以被表示为一个字节序列，该字节序列包括该对象的数据、有关对象的类型的信息和存储在对象中数据的类型。将序列化对象写入文件之后，可以从文件中读取出来，并且对它进行反序列化，也就是说，对象的类型信息、对象的数据，还有对象中的数据类型可以用来在内存中新建对象。 </p>
 </blockquote>
 <p>java序列化会更有利于传输，它的速度会更快，并且也会更安全，被调用方序列化，调用方反序列化即能够得到传输之前的最原始的java对象，常常用来做不同进程之间的对象传输。能够更加便于储存，不论是存储成文件又或者是存储成数据库都是可以的，存储成文件，下次要用可以直接反序列拿到对象。</p>
-<h2 id="0x02、反序列化如何实现"><a href="#0x02、反序列化如何实现" class="headerlink" title="0x02、反序列化如何实现"></a>0x02、反序列化如何实现</h2><p>实现方法：通过该对象所处类实现<font color=red>Serializable</font>接口，调用<font color=red>writeObject()</font>方法序列化、<font color=red>readObject()</font>方法反序列化分别对对象进行数据转换的写入和读取。</p>
-<p><font color=red>writeObject()</font>序列化：将java对象转换成java字节序列、json、xml等数据格式的过程，利用ObjectOutputStream流接口把对象序列化数据写入文件。<br><font color=red>readObject()</font>反序列化：将java字节序列、json、xml等数据格式还原成java对象的过程，利用ObjectInputStream流接口把序列化文件读取并恢复成对象。</p>
+<h2 id="0x02、反序列化如何实现"><a href="#0x02、反序列化如何实现" class="headerlink" title="0x02、反序列化如何实现"></a>0x02、反序列化如何实现</h2><p>实现方法：通过该对象所处类实现<font color="red">Serializable</font>接口，调用<font color="red">writeObject()</font>方法序列化、<font color="red">readObject()</font>方法反序列化分别对对象进行数据转换的写入和读取。</p>
+<p><font color="red">writeObject()</font>序列化：将java对象转换成java字节序列、json、xml等数据格式的过程，利用ObjectOutputStream流接口把对象序列化数据写入文件。<br><font color="red">readObject()</font>反序列化：将java字节序列、json、xml等数据格式还原成java对象的过程，利用ObjectInputStream流接口把序列化文件读取并恢复成对象。</p>
 <p>一个类的对象要想序列化成功，必须满足两个条件：<br>1、该类必须实现 java.io.Serializable 接口。<br>2、该类的所有属性必须是可序列化的。如果有一个属性不是可序列化的，则该属性必须注明是短暂的。<br>注：不可序列化的属性：带static修饰（静态变量）和transient修饰（临时变量）的属性，对于transient属性序列化机制会跳过而不会将其写入文件，但在读取时也不可恢复，该属性值保持默认初始化值。</p>
 <h2 id="0x03、反序列化代码实现demo"><a href="#0x03、反序列化代码实现demo" class="headerlink" title="0x03、反序列化代码实现demo"></a>0x03、反序列化代码实现demo</h2><p>新建java项目，创建pack包，新建java程序，不赘述了。</p>
-<h3 id="类对象："><a href="#类对象：" class="headerlink" title="类对象："></a>类对象：</h3><p>创建people类，并实现<font color=red>Serializable</font>接口</p>
+<h3 id="类对象："><a href="#类对象：" class="headerlink" title="类对象："></a>类对象：</h3><p>创建people类，并实现<font color="red">Serializable</font>接口</p>
 <p><img src="/posts/45180cd1/classpeople.png" title="people类"></p>
 <h3 id="序列化："><a href="#序列化：" class="headerlink" title="序列化："></a>序列化：</h3><p>创建demo类，实现对people类对象调用并实例化输出</p>
 <p><img src="/posts/45180cd1/ser.png" title="序列化过程"></p>

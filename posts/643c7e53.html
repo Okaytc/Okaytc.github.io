@@ -128,14 +128,14 @@
       <div class="markdown-body">
         <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>延伸java序列化和java反射的内容，针对一些gadget利用链的一些学习，理解一下利用链的分析过程。<br>本文学习URLDNS反序列化链，也是java反序列化利用链里面最简单的一条，也利用java反序列化和反射的相关知识，可把前两篇java基础学习的知识运用在利用链里面，记录下利用链相关知识点。</p>
 <p>本文角度两个方面，一是从ysoserial工具利用URLDNS角度分析学习，另一个角度是从URLDNS利用链分析学习。</p>
-<h1 id="0x01、URLDNS链简述"><a href="#0x01、URLDNS链简述" class="headerlink" title="0x01、URLDNS链简述"></a>0x01、URLDNS链简述</h1><p>URLDNS是JAVA复杂的反序列化链中最简单的一条，它不是一条真正意义上的“利⽤链”。因为它所能产生的结果<font color=red>不是命令执⾏</font>，⽽是<font color=red>⼀次DNS请求</font>。</p>
+<h1 id="0x01、URLDNS链简述"><a href="#0x01、URLDNS链简述" class="headerlink" title="0x01、URLDNS链简述"></a>0x01、URLDNS链简述</h1><p>URLDNS是JAVA复杂的反序列化链中最简单的一条，它不是一条真正意义上的“利⽤链”。因为它所能产生的结果<font color="red">不是命令执⾏</font>，⽽是<font color="red">⼀次DNS请求</font>。</p>
 <p>URLDNS通常用于快速监测是否存在反序列化漏洞，尤其对<strong>无回显的漏洞检测</strong>，原因：</p>
 <ul>
 <li>只依赖原生类</li>
 <li>不限制jdk版本</li>
 </ul>
 <p>也就是说URLDN可直接调用java内置库即可进行操作，无需依赖其他第三方组件，同时不限制jdk版本不通带来的语言代码差异。</p>
-<p>URLDNS链主要问题产生于HashMap,<font color=red>HashMap重写了readObject()反序列化方法，并且参数可控导致序列化漏洞</font>。</p>
+<p>URLDNS链主要问题产生于HashMap,<font color="red">HashMap重写了readObject()反序列化方法，并且参数可控导致序列化漏洞</font>。</p>
 <blockquote>
 <p>HashMap简单介绍:<br>HashMap 是一个散列表，它存储的内容是键值对(key-value)映射。<br>HashMap 实现了 Map 接口，根据键的 HashCode 值存储数据，具有很快的访问速度，最多允许一条记录的键为 null，不支持线程同步。<br>HashMap 是无序的，即不会记录插入的顺序。<br>HashMap 继承于AbstractMap，实现了 Map、Cloneable、java.io.Serializable 接口。</p>
 </blockquote>
