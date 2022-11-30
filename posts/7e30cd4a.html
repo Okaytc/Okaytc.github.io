@@ -1,149 +1,132 @@
-<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>java安全-CC2链学习与分析 | Okaytc</title><meta name="keywords" content="Java安全,java利用链"><meta name="author" content="Okaytc"><meta name="copyright" content="Okaytc"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="0x00、前言针对CC链的分析，主要还是以逆向思维为主（从结果分析过程），从中尽可能学习出问题的地方在哪，哪里调用的这个带问题的地方，一步步思考。这次的学习顺序是先PriorityQueue优先级队列——&gt;CC2链学习分析——&gt;javassist字节码增强类——&gt;ClassLoader#defineClass定义类——&gt;TemplatesImpl模板转换——&gt;cc2-">
-<meta property="og:type" content="article">
-<meta property="og:title" content="java安全-CC2链学习与分析">
-<meta property="og:url" content="https://okaytc.github.io/posts/7e30cd4a.html">
-<meta property="og:site_name" content="Okaytc">
-<meta property="og:description" content="0x00、前言针对CC链的分析，主要还是以逆向思维为主（从结果分析过程），从中尽可能学习出问题的地方在哪，哪里调用的这个带问题的地方，一步步思考。这次的学习顺序是先PriorityQueue优先级队列——&gt;CC2链学习分析——&gt;javassist字节码增强类——&gt;ClassLoader#defineClass定义类——&gt;TemplatesImpl模板转换——&gt;cc2-">
-<meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://okaytc.github.io/img/bg3.png">
-<meta property="article:published_time" content="2022-11-29T06:36:59.000Z">
-<meta property="article:modified_time" content="2022-11-29T08:26:36.419Z">
-<meta property="article:author" content="Okaytc">
-<meta property="article:tag" content="Java安全">
-<meta property="article:tag" content="java利用链">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://okaytc.github.io/img/bg3.png"><link rel="shortcut icon" href="/img/head.jpg"><link rel="canonical" href="https://okaytc.github.io/posts/7e30cd4a"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = { 
-  root: '/',
-  algolia: undefined,
-  localSearch: {"path":"/search.xml","preload":false,"languages":{"hits_empty":"找不到您查询的内容：${query}"}},
-  translate: undefined,
-  noticeOutdate: undefined,
-  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
-  copy: {
-    success: '复制成功',
-    error: '复制错误',
-    noSupport: '浏览器不支持'
-  },
-  relativeDate: {
-    homepage: false,
-    post: false
-  },
-  runtime: '',
-  date_suffix: {
-    just: '刚刚',
-    min: '分钟前',
-    hour: '小时前',
-    day: '天前',
-    month: '个月前'
-  },
-  copyright: {"limitCount":50,"languages":{"author":"作者: Okaytc","link":"链接: ","source":"来源: Okaytc","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
-  lightbox: 'fancybox',
-  Snackbar: undefined,
-  source: {
-    justifiedGallery: {
-      js: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.js',
-      css: 'https://cdn.jsdelivr.net/npm/flickr-justified-gallery/dist/fjGallery.min.css'
-    }
-  },
-  isPhotoFigcaption: false,
-  islazyload: false,
-  isAnchor: false
-}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
-  title: 'java安全-CC2链学习与分析',
-  isPost: true,
-  isHome: false,
-  isHighlightShrink: false,
-  isToc: true,
-  postUpdate: '2022-11-29 16:26:36'
-}</script><noscript><style type="text/css">
-  #nav {
-    opacity: 1
-  }
-  .justified-gallery img {
-    opacity: 1
-  }
+<!DOCTYPE html>
+<html lang="zh-CN">
 
-  #recent-posts time,
-  #post-meta time {
-    display: inline !important
-  }
-</style></noscript><script>(win=>{
-    win.saveToLocal = {
-      set: function setWithExpiry(key, value, ttl) {
-        if (ttl === 0) return
-        const now = new Date()
-        const expiryDay = ttl * 86400000
-        const item = {
-          value: value,
-          expiry: now.getTime() + expiryDay,
-        }
-        localStorage.setItem(key, JSON.stringify(item))
-      },
-
-      get: function getWithExpiry(key) {
-        const itemStr = localStorage.getItem(key)
-
-        if (!itemStr) {
-          return undefined
-        }
-        const item = JSON.parse(itemStr)
-        const now = new Date()
-
-        if (now.getTime() > item.expiry) {
-          localStorage.removeItem(key)
-          return undefined
-        }
-        return item.value
-      }
-    }
+  <head>
+  <meta charset="utf-8">
+  <meta name="author" content="zchengsite, 1451426471@qq.com" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   
-    win.getScript = url => new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = url
-      script.async = true
-      script.onerror = reject
-      script.onload = script.onreadystatechange = function() {
-        const loadState = this.readyState
-        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
-        script.onload = script.onreadystatechange = null
-        resolve()
-      }
-      document.head.appendChild(script)
-    })
   
-      win.activateDarkMode = function () {
-        document.documentElement.setAttribute('data-theme', 'dark')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
-        }
-      }
-      win.activateLightMode = function () {
-        document.documentElement.setAttribute('data-theme', 'light')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
-        }
-      }
-      const t = saveToLocal.get('theme')
-    
-          if (t === 'dark') activateDarkMode()
-          else if (t === 'light') activateLightMode()
+  <title>java安全-CC2链学习与分析 | Okaytc</title>
+
+  
+    <link rel="apple-touch-icon" href="/img/head.jpg">
+    <link rel="icon" href="/img/head.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/iconfont/iconfont.css">
+<link rel="stylesheet" href="/css/github-markdown.css">
+<link rel="stylesheet" href="/css/highlight.css">
+
+
+  <!-- jquery3.3.1 -->
+  <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+
+  <!-- fancybox -->
+  <link href="https://cdn.bootcss.com/fancybox/3.5.2/jquery.fancybox.min.css" rel="stylesheet">
+  <script async src="https://cdn.bootcss.com/fancybox/3.5.2/jquery.fancybox.min.js"></script>
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/img/head.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/links/">
+          <a href="/links/">Friends</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">java安全-CC2链学习与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime" title="更新时间"></i>
+          2022-11-29
+        </span>
         
-      const asideStatus = saveToLocal.get('aside-status')
-      if (asideStatus !== undefined) {
-        if (asideStatus === 'hide') {
-          document.documentElement.classList.add('hide-aside')
-        } else {
-          document.documentElement.classList.remove('hide-aside')
-        }
-      }
-    
-    const detectApple = () => {
-      if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
-        document.documentElement.classList.add('apple')
-      }
-    }
-    detectApple()
-    })(window)</script><meta name="generator" content="Hexo 6.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="/img/head.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">6</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">3</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fa fa-archive"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url('/img/bg3.png')"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">Okaytc</a></span><div id="menus"><div id="search-button"><a class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fa fa-archive"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">java安全-CC2链学习与分析</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2022-11-29T06:36:59.000Z" title="发表于 2022-11-29 14:36:59">2022-11-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2022-11-29T08:26:36.419Z" title="更新于 2022-11-29 16:26:36">2022-11-29</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java%E5%AE%89%E5%85%A8/">Java安全</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java%E5%AE%89%E5%85%A8/java%E5%88%A9%E7%94%A8%E9%93%BE/">java利用链</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">字数总计:</span><span class="word-count">8.8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>33分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="java安全-CC2链学习与分析"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>针对CC链的分析，主要还是以逆向思维为主（从结果分析过程），从中尽可能学习出问题的地方在哪，哪里调用的这个带问题的地方，一步步思考。<br>这次的学习顺序是先PriorityQueue优先级队列——&gt;CC2链学习分析——&gt;javassist字节码增强类——&gt;ClassLoader#defineClass定义类——&gt;TemplatesImpl模板转换——&gt;cc2-yso链学习与分析</p>
+              <span class="post-tags">
+                <i class="iconfont icon-tags" title="标签"></i>
+                
+                <span class="span--tag">
+                  <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                    <b>#</b> Java安全
+                  </a>
+                </span>
+                
+                <span class="span--tag">
+                  <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                    <b>#</b> java利用链
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>针对CC链的分析，主要还是以逆向思维为主（从结果分析过程），从中尽可能学习出问题的地方在哪，哪里调用的这个带问题的地方，一步步思考。<br>这次的学习顺序是先PriorityQueue优先级队列——&gt;CC2链学习分析——&gt;javassist字节码增强类——&gt;ClassLoader#defineClass定义类——&gt;TemplatesImpl模板转换——&gt;cc2-yso链学习与分析</p>
 <h1 id="0x01、Apache-Commons-Collections描述"><a href="#0x01、Apache-Commons-Collections描述" class="headerlink" title="0x01、Apache Commons Collections描述"></a>0x01、Apache Commons Collections描述</h1><p>引用CC1链分析中的描述<br>CC链即Commons Collections利用链，主要针对Commons Collections组件发现的利用链。</p>
 <blockquote>
 <p>Apache Commons是Apache软件基金会的项目。Commons的目的是提供可重用的、开源的Java代码。<br>Apache Commons提供了很多工具类库，他们几乎不依赖其他第三方的类库，接口稳定，集成简单，可以大大提高编码效率和代码质量。<br>Apache Commons Collections 是对 java.util.Collection 的扩展。<br>Commons Collections包为Java标准的Collections API提供了相当好的补充。在此基础上对其常用的数据结构操作进行了很好的封装、抽象和补充。让我们在开发应用程序的过程中，既保证了性能，同时也能大大简化代码。</p>
@@ -516,33 +499,332 @@
 <p>其中报错跟上文cc2分析和<code>TemplatesImpl</code>类学习的报错一样就不再赘述了</p>
 <h1 id="0x06、总结"><a href="#0x06、总结" class="headerlink" title="0x06、总结"></a>0x06、总结</h1><p>总的来说cc2-yso链比普通链复杂了很多，其中也学习了javassist生成字节码，再到TemplatesImpl去读取字节码实例化，最后结合优先级队列实现命令执行。<br>绕来绕去这中间确实花了不少时间，有些调用细节还是需要多看一下才能发现精髓（也确实费时间），但对调用的很多类都还没有从jdk源码上真正明白他们每个类的每个方法是实现怎样的作用，只从利用链角度去了解了调用到的链的类的相关原理，后面尽量多去了解那些类的原理。</p>
 <h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/nice0e3/p/13811335.html">https://www.cnblogs.com/nice0e3/p/13811335.html</a><br><a target="_blank" rel="noopener" href="https://www.cnblogs.com/hlkawa/p/15383289.html">https://www.cnblogs.com/hlkawa/p/15383289.html</a><br><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/cb591a12f50c">https://www.jianshu.com/p/cb591a12f50c</a><br><a target="_blank" rel="noopener" href="https://paper.seebug.org/1242/#commonscollections-2">https://paper.seebug.org/1242/#commonscollections-2</a><br><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/247044?from=timeline#h2-0">https://www.anquanke.com/post/id/247044?from=timeline#h2-0</a></p>
-</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="https://Okaytc.github.io">Okaytc</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://okaytc.github.io/posts/7e30cd4a.html">https://okaytc.github.io/posts/7e30cd4a.html</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://Okaytc.github.io" target="_blank">Okaytc</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java%E5%AE%89%E5%85%A8/">Java安全</a><a class="post-meta__tags" href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/">java利用链</a></div><div class="post_share"><div class="social-share" data-image="/img/bg3.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/posts/dd664be3.html"><img class="next-cover" src="/img/bg3.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">java安全-CC1链学习与分析</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><div><a href="/posts/dd664be3.html" title="java安全-CC1链学习与分析"><img class="cover" src="/img/bg3.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2022-11-09</div><div class="title">java安全-CC1链学习与分析</div></div></a></div><div><a href="/posts/643c7e53.html" title="java安全-URLDNS链学习与分析"><img class="cover" src="/img/bg3.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2022-10-25</div><div class="title">java安全-URLDNS链学习与分析</div></div></a></div><div><a href="/posts/7a787d86.html" title="java安全-初识java反射"><img class="cover" src="/img/bg3.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2022-10-18</div><div class="title">java安全-初识java反射</div></div></a></div><div><a href="/posts/45180cd1.html" title="java安全-初识反序列化"><img class="cover" src="/img/bg3.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2022-09-27</div><div class="title">java安全-初识反序列化</div></div></a></div></div></div><hr/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div class="vcomment" id="vcomment"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Okaytc</div><div class="author-info__description">生活 健身 学习 沉淀</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">6</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">3</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Okaytc"><i class="fab fa-github"></i><span>Github</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">学习一些漏洞分析、复现、相关工具使用等，当作是学习记录吧。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Apache-Commons-Collections%E6%8F%8F%E8%BF%B0"><span class="toc-number">2.</span> <span class="toc-text">0x01、Apache Commons Collections描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-number">3.</span> <span class="toc-text">0x02、环境准备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E5%88%A9%E7%94%A8%E9%93%BE%E5%9F%BA%E7%A1%80%E5%89%8D%E6%8F%90"><span class="toc-number">4.</span> <span class="toc-text">0x03、利用链基础前提</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#javassist%E5%AD%97%E8%8A%82%E7%A0%81%E5%A2%9E%E5%BC%BA%E7%B1%BB"><span class="toc-number">4.1.</span> <span class="toc-text">javassist字节码增强类</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ClassPool"><span class="toc-number">4.1.1.</span> <span class="toc-text">ClassPool</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtClass"><span class="toc-number">4.1.2.</span> <span class="toc-text">CtClass</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtMethods"><span class="toc-number">4.1.3.</span> <span class="toc-text">CtMethods</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtConstructor"><span class="toc-number">4.1.4.</span> <span class="toc-text">CtConstructor</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AD%97%E8%8A%82%E7%A0%81toBytecode"><span class="toc-number">4.1.5.</span> <span class="toc-text">生成字节码toBytecode()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AF%B9%E8%B1%A1toClass"><span class="toc-number">4.1.6.</span> <span class="toc-text">生成对象toClass()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%80%E5%8D%95%E5%AE%9E%E7%8E%B0demo"><span class="toc-number">4.1.7.</span> <span class="toc-text">简单实现demo</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PriorityQueue%E4%BC%98%E5%85%88%E7%BA%A7%E9%98%9F%E5%88%97"><span class="toc-number">4.2.</span> <span class="toc-text">PriorityQueue优先级队列</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ClassLoader-defineClass"><span class="toc-number">4.3.</span> <span class="toc-text">ClassLoader#defineClass</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TemplatesImpl"><span class="toc-number">4.4.</span> <span class="toc-text">TemplatesImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#defineTransletClasses"><span class="toc-number">4.4.1.</span> <span class="toc-text">defineTransletClasses()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getTransletInstance"><span class="toc-number">4.4.2.</span> <span class="toc-text">getTransletInstance()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#newTransformer"><span class="toc-number">4.4.3.</span> <span class="toc-text">newTransformer()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getOutputProperties"><span class="toc-number">4.4.4.</span> <span class="toc-text">getOutputProperties()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E9%93%BE"><span class="toc-number">4.4.5.</span> <span class="toc-text">完整链</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0demo"><span class="toc-number">4.4.6.</span> <span class="toc-text">实现demo</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81CC2%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="toc-number">5.</span> <span class="toc-text">0x04、CC2利用链分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%86%E6%8E%A8%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">5.1.</span> <span class="toc-text">逆推调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A3%E5%90%91%E5%88%86%E6%9E%90%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-number">5.2.</span> <span class="toc-text">正向分析调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E5%88%A9%E7%94%A8%E9%93%BE"><span class="toc-number">5.3.</span> <span class="toc-text">完整利用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#POC%E6%9E%84%E9%80%A0"><span class="toc-number">5.4.</span> <span class="toc-text">POC构造</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81CC2-yso%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="toc-number">6.</span> <span class="toc-text">0x05、CC2-yso利用链分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90%E7%AE%80%E8%BF%B0"><span class="toc-number">6.1.</span> <span class="toc-text">分析简述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E9%80%A0POC"><span class="toc-number">6.2.</span> <span class="toc-text">构造POC</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">0x06、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-number">8.</span> <span class="toc-text">0x07、参考链接</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/posts/7e30cd4a.html" title="java安全-CC2链学习与分析">java安全-CC2链学习与分析</a><time datetime="2022-11-29T06:36:59.000Z" title="发表于 2022-11-29 14:36:59">2022-11-29</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/posts/dd664be3.html" title="java安全-CC1链学习与分析">java安全-CC1链学习与分析</a><time datetime="2022-11-09T06:36:59.000Z" title="发表于 2022-11-09 14:36:59">2022-11-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/posts/643c7e53.html" title="java安全-URLDNS链学习与分析">java安全-URLDNS链学习与分析</a><time datetime="2022-10-25T07:36:59.000Z" title="发表于 2022-10-25 15:36:59">2022-10-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/posts/7a787d86.html" title="java安全-初识java反射">java安全-初识java反射</a><time datetime="2022-10-18T07:36:59.000Z" title="发表于 2022-10-18 15:36:59">2022-10-18</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/posts/777da932.html" title="记一次普通的攻击溯源排查">记一次普通的攻击溯源排查</a><time datetime="2022-10-11T15:00:00.000Z" title="发表于 2022-10-11 23:00:00">2022-10-11</time></div></div></div></div></div></div></main><footer id="footer" style="background-image: url('/img/bg3.png')"><div id="footer-wrap"><div class="copyright">&copy;2022 By Okaytc</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="直达评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><span id="loading-status"></span><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="is-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据库加载中</span></div><div class="search-wrap"><div id="local-search-input"><div class="local-search-box"><input class="local-search-box--input" placeholder="搜索文章" type="text"/></div></div><hr/><div id="local-search-results"></div></div></div><div id="search-mask"></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox.umd.min.js"></script><script src="/js/search/local-search.js"></script><div class="js-pjax"><script>function loadValine () {
-  function initValine () {
-    const valine = new Valine(Object.assign({
-      el: '#vcomment',
-      appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
-      appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
-      avatar: 'monsterid',
-      serverURLs: '',
-      emojiMaps: "",
-      path: window.location.pathname,
-      visitor: false
-    }, null))
-  }
 
-  if (typeof Valine === 'function') initValine() 
-  else getScript('https://cdn.jsdelivr.net/npm/valine/dist/Valine.min.js').then(initValine)
-}
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/dd664be3.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>PREV</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime" title="更新时间"></i>
+              2022-11-29
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags" title="标签"></i>
+                    
+                    <span class="span--tag">
+                      <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                        <b>#</b> Java安全
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag">
+                      <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                        <b>#</b> java利用链
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div class="post-catalog" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Apache-Commons-Collections%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Apache Commons Collections描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">0x02、环境准备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E5%88%A9%E7%94%A8%E9%93%BE%E5%9F%BA%E7%A1%80%E5%89%8D%E6%8F%90"><span class="toc-text">0x03、利用链基础前提</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#javassist%E5%AD%97%E8%8A%82%E7%A0%81%E5%A2%9E%E5%BC%BA%E7%B1%BB"><span class="toc-text">javassist字节码增强类</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ClassPool"><span class="toc-text">ClassPool</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtClass"><span class="toc-text">CtClass</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtMethods"><span class="toc-text">CtMethods</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CtConstructor"><span class="toc-text">CtConstructor</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AD%97%E8%8A%82%E7%A0%81toBytecode"><span class="toc-text">生成字节码toBytecode()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AF%B9%E8%B1%A1toClass"><span class="toc-text">生成对象toClass()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%80%E5%8D%95%E5%AE%9E%E7%8E%B0demo"><span class="toc-text">简单实现demo</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PriorityQueue%E4%BC%98%E5%85%88%E7%BA%A7%E9%98%9F%E5%88%97"><span class="toc-text">PriorityQueue优先级队列</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ClassLoader-defineClass"><span class="toc-text">ClassLoader#defineClass</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TemplatesImpl"><span class="toc-text">TemplatesImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#defineTransletClasses"><span class="toc-text">defineTransletClasses()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getTransletInstance"><span class="toc-text">getTransletInstance()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#newTransformer"><span class="toc-text">newTransformer()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#getOutputProperties"><span class="toc-text">getOutputProperties()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E9%93%BE"><span class="toc-text">完整链</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0demo"><span class="toc-text">实现demo</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81CC2%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="toc-text">0x04、CC2利用链分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%86%E6%8E%A8%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-text">逆推调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A3%E5%90%91%E5%88%86%E6%9E%90%E8%B0%83%E7%94%A8%E9%93%BE"><span class="toc-text">正向分析调用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E5%88%A9%E7%94%A8%E9%93%BE"><span class="toc-text">完整利用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#POC%E6%9E%84%E9%80%A0"><span class="toc-text">POC构造</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81CC2-yso%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="toc-text">0x05、CC2-yso利用链分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90%E7%AE%80%E8%BF%B0"><span class="toc-text">分析简述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E9%80%A0POC"><span class="toc-text">构造POC</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x06、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
+    </div>
+  </div>
 
-if ('Valine' === 'Valine' || !false) {
-  if (false) btf.loadComment(document.getElementById('vcomment'),loadValine)
-  else setTimeout(loadValine, 0)
-} else {
-  function loadOtherComment () {
-    loadValine()
-  }
-}</script></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
-POWERMODE.shake = true;
-POWERMODE.mobile = true;
-document.body.addEventListener('input', POWERMODE);
-</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/click-show-text.min.js" data-mobile="true" data-text="富强,民主,文明,和谐,平等,公正,法治,爱国,敬业,诚信,友善" data-fontsize="15px" data-random="false" async="async"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        <div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/zchengsite/hexo-theme-oranges">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="email" href="">
+            <i class="iconfont icon-envelope"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="facebook" href="">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="twitter" href="">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="wechat" href="">
+            <i class="iconfont icon-wechat"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="weibo" href="">
+            <i class="iconfont icon-weibo"></i>
+          </a>
+        </li>
+      
+        <li>
+          <a title="rss" href="/atom.xml">
+            <i class="iconfont icon-rss"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    <div class="footer-more">
+      <a target="_blank" rel="noopener" href="https://github.com/zchengsite/hexo-theme-oranges">Copyright © Oranges 2020</a>
+    </div>
+  
+    <div class="footer-more">
+      <a target="_blank" rel="noopener" href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+    </div>
+  
+</div>
+
+      </div>
+
+      <div class="back-to-top hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+      
+  <div class="search-icon" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+    </div>
+  </body>
+</html>
