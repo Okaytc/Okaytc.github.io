@@ -225,7 +225,7 @@
 <p><img src="/posts/340e4601/cc5-9.png" title="本地执行"></p>
 <p>同时在反序列化时发现并不会触发漏洞，断点查看val值已经变成进程对象</p>
 <p><img src="/posts/340e4601/cc5-10.png" title="val"></p>
-<p>因为在序列化过程前，代码执行到BadAttributeValueExpException调用构造方法触发代码后，val的值已经被运行完后赋值，返回<code>getKey() + &quot;=&quot; + getValue()</code>即上图中的值，此时的val值不再是<code>TiedMapEntry</code>对象，因此无法反序列化触发漏洞</p>
+<p>因为在序列化过程前，代码执行到<code>BadAttributeValueExpException</code>调用构造方法触发代码后，<code>val</code>的值已经被运行完后赋值，返回<code>getKey() + &quot;=&quot; + getValue()</code>即上图中的值，此时的val值不再是<code>TiedMapEntry</code>对象，因此无法反序列化触发漏洞</p>
 <p><img src="/posts/340e4601/cc5-11.png" title="val"></p>
 <p>可通过反射对val值进行赋值成<code>TiedMapEntry</code>对象，可规避这个问题，至此，利用链完成。</p>
 <h2 id="构造POC"><a href="#构造POC" class="headerlink" title="构造POC"></a>构造POC</h2><p>首先CC1-LazyMap链的前半段没有变化（也就是ChainedTransformer触发点），可直接使用</p>
