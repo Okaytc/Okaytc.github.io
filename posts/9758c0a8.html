@@ -193,7 +193,7 @@
 <h1 id="0x03、分析"><a href="#0x03、分析" class="headerlink" title="0x03、分析"></a>0x03、分析</h1><p>CC6基于CC5的变式，改变了触发入口点，简述CC5的触发过程</p>
 <h2 id="回顾CC5链"><a href="#回顾CC5链" class="headerlink" title="回顾CC5链"></a>回顾CC5链</h2><ul>
 <li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
-<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，通过<code>TiedMapEntry.getValue()</code>方法调用<code>lazyMap.get()</code>方法。</li>
+<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，再通过<code>TiedMapEntry.toString()</code>方法去调用<code>TiedMapEntry.getValue()</code>方法，最后调用到<code>lazyMap.get()</code>方法。</li>
 <li>将<code>TiedMapEntry</code>对象通过反射赋值给<code>BadAttributeValueExpException</code>类的<code>val</code>值，通过反序列化<code>BadAttributeValueExpException</code>类对象，调用重写<code>readObject</code>方法中的<code>val.toString()</code>。</li>
 <li><code>val.toString()</code>调用等效于<code>TiedMapEntry.toString()</code>，即调用<code>TiedMapEntry.getValue()</code>方法，达到调用<code>lazyMap.get()</code>方法触发代码执行。</li>
 </ul>
@@ -375,6 +375,11 @@
               
           </div>
           <div class="post-foot-prev">
+            
+              <a href="/posts/40ba40f0.html" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
             
           </div>
         </div>

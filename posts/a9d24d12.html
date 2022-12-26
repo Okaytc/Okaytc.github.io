@@ -195,7 +195,7 @@
 <p>简述CC1、CC2的实现流程</p>
 <p>CC1（LazyMap链）：</p>
 <ul>
-<li>生成LazyMap对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法，随后将LazyMap对象传入<code>AnnotationInvocationHandler</code>代理类。</li>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法，随后将<code>LazyMap</code>对象传入<code>AnnotationInvocationHandler</code>代理类。</li>
 <li>通过动态代理，在生成二次代理对象时调用对象的<code>invoke</code>方法，其中<code>invoke</code>方法中调用<code>LazyMap.get()</code>方法、<code>get()</code>方法调用<code>ChainedTransformer.transform()</code>方法最后实现<code>InvokerTransformer.transform()</code>执行命令;</li>
 </ul>
 <p>CC2（TemplatesImpl）：</p>
