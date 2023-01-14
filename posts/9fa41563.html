@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      php7内核rfc1867协议对文件上传的过滤浅析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head.jpg">
+    <link rel="icon" href="/images/head.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">php7内核rfc1867协议对文件上传的过滤浅析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-01-14 15:19:15
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/php%E5%AE%89%E5%85%A8/" title="php安全">
+                    #php安全
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/php%E5%86%85%E6%A0%B8/" title="php内核">
+                    #php内核
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>在对php7环境下的普通文件上传，自动过滤了特殊符号，通过<code>$_files[file][name]</code>获取到文件名引发的思考。</p>
+<h1 id="0x01、背景"><a href="#0x01、背景" class="headerlink" title="0x01、背景"></a>0x01、背景</h1><p>测试环境：<br>php：7.3.4</p>
+<p>简单的文件上传源码</p>
+<figure class="highlight php"><table><tr><td class="code"><pre><span class="line">&lt;html&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line"></span><br><span class="line">&lt;form action=<span class="string">&quot;#&quot;</span> method=<span class="string">&quot;post&quot;</span></span><br><span class="line">      enctype=<span class="string">&quot;multipart/form-data&quot;</span>&gt;</span><br><span class="line">    &lt;label <span class="keyword">for</span>=<span class="string">&quot;file&quot;</span>&gt;Filename:&lt;/label&gt;</span><br><span class="line">    &lt;input type=<span class="string">&quot;file&quot;</span> name=<span class="string">&quot;file&quot;</span> id=<span class="string">&quot;file&quot;</span> /&gt;</span><br><span class="line">    &lt;br /&gt;</span><br><span class="line">    &lt;input type=<span class="string">&quot;submit&quot;</span> name=<span class="string">&quot;submit&quot;</span> id=<span class="string">&quot;button&quot;</span> value=<span class="string">&quot;Submit&quot;</span> /&gt;</span><br><span class="line">&lt;/form&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br><span class="line"></span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line"><span class="variable">$str</span>=<span class="variable">$_POST</span>[<span class="string">&quot;str&quot;</span>];</span><br><span class="line"><span class="keyword">echo</span> <span class="variable">$str</span>;</span><br><span class="line"><span class="keyword">if</span> (<span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;error&quot;</span>] &gt; <span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;Error: &quot;</span> . <span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;error&quot;</span>] . <span class="string">&quot;&lt;br /&gt;&quot;</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;Upload: &quot;</span> . <span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;name&quot;</span>] . <span class="string">&quot;&lt;br /&gt;&quot;</span>;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;Type: &quot;</span> . <span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;type&quot;</span>] . <span class="string">&quot;&lt;br /&gt;&quot;</span>;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;Size: &quot;</span> . (<span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;size&quot;</span>] / <span class="number">1024</span>) . <span class="string">&quot; Kb&lt;br /&gt;&quot;</span>;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;Stored in: &quot;</span> . <span class="variable">$_FILES</span>[<span class="string">&quot;file&quot;</span>][<span class="string">&quot;tmp_name&quot;</span>];</span><br><span class="line">    <span class="comment">//echo phpinfo();</span></span><br><span class="line">    <span class="comment">//move uploaded file($file[&#x27;file&#x27;][&#x27;tmp_name&#x27;], $file[&#x27;file&#x27;][&#x27;name&#x27;]);</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>文件上传过程中，<code>$_files[file][name]</code>获取到&#x2F;或者\后的文件名，前面的符号被自动过滤<br><img src="/posts/9fa41563/php-1.png" title="文件上传"></p>
+<p>换了不同的web应用，都是同样的情况，猜测php内核对文件上传的信息做了处理</p>
+<h1 id="0x02、rfc1867协议"><a href="#0x02、rfc1867协议" class="headerlink" title="0x02、rfc1867协议"></a>0x02、rfc1867协议</h1><blockquote>
+<p>RCF1867是Form-based File Upload in HTML标准协议，该协议在html基础上为input元素的type属性增加了一个file选项，同时限定了Form的method必须为POST，ENCTYPE必须为multipart&#x2F;form-data</p>
+</blockquote>
+<h2 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h2><p>主体程序SAPI_POST_HANDLER_FUNC方法，主体前面是初始化，声明一些变量和相关函数</p>
+<p><img src="/posts/9fa41563/php-3.png" title="主体函数"></p>
+<h2 id="获取boundary"><a href="#获取boundary" class="headerlink" title="获取boundary"></a>获取boundary</h2><p>后面开始先获取boundary值</p>
+<p><img src="/posts/9fa41563/php-4.png" title="主体函数"></p>
+<p>获取过程中对boundary进行合法性校验</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//判断boundary中是否存在=号</span></span><br><span class="line"><span class="keyword">if</span> (!boundary || !(boundary = <span class="built_in">strchr</span>(boundary, <span class="string">&#x27;=&#x27;</span>))) &#123;</span><br><span class="line">		sapi_module.sapi_error(E_WARNING, <span class="string">&quot;Missing boundary in multipart/form-data POST data&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	boundary++;</span><br><span class="line">	boundary_len = (<span class="type">int</span>)<span class="built_in">strlen</span>(boundary);</span><br><span class="line"></span><br><span class="line">	<span class="comment">//判断boundary是否以&quot;开头,以&quot;结尾，判断为不合法</span></span><br><span class="line">  <span class="keyword">if</span> (boundary[<span class="number">0</span>] == <span class="string">&#x27;&quot;&#x27;</span>) &#123;</span><br><span class="line">		boundary++;</span><br><span class="line">		boundary_end = <span class="built_in">strchr</span>(boundary, <span class="string">&#x27;&quot;&#x27;</span>);</span><br><span class="line">		<span class="keyword">if</span> (!boundary_end) &#123;</span><br><span class="line">			sapi_module.sapi_error(E_WARNING, <span class="string">&quot;Invalid boundary in multipart/form-data POST data&quot;</span>);</span><br><span class="line">			<span class="keyword">return</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">/* search for the end of the boundary */</span></span><br><span class="line">		boundary_end = <span class="built_in">strpbrk</span>(boundary, <span class="string">&quot;,;&quot;</span>);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>boundary获取后，对buffer流进行初始化</p>
+<figure class="highlight php"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Initialize the buffer */</span></span><br><span class="line">	<span class="keyword">if</span> (!(mbuff = <span class="title function_ invoke__">multipart_buffer_new</span>(boundary, boundary_len))) &#123;</span><br><span class="line">		sapi_module.<span class="title function_ invoke__">sapi_error</span>(E_WARNING, <span class="string">&quot;Unable to initialize the input buffer&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下来也是一些初始化工作</p>
+<p><img src="/posts/9fa41563/php-5.png" title="初始化"></p>
+<h2 id="解析Content-Disposition"><a href="#解析Content-Disposition" class="headerlink" title="解析Content-Disposition"></a>解析Content-Disposition</h2><p>接下来就是解析multipart&#x2F;form-data内容字段</p>
+<p><img src="/posts/9fa41563/php-6.png" title="解析字段"></p>
+<p>声明了一些变量过后，开始解析头部数据</p>
+<figure class="highlight php"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (!<span class="title function_ invoke__">multipart_buffer_headers</span>(mbuff, &amp;header)) &#123;</span><br><span class="line">			<span class="keyword">goto</span> fileupload_done;</span><br><span class="line">		&#125;</span><br></pre></td></tr></table></figure>
+
+<p>读取Content-Disposition字段</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> ((cd = php_mime_get_hdr_value(header, <span class="string">&quot;Content-Disposition&quot;</span>))) &#123;</span><br></pre></td></tr></table></figure>
+
+<p>通过getword方法用”;”分割Content-Disposition字段值</p>
+<figure class="highlight php"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span> (*cd &amp;&amp; (pair = <span class="title function_ invoke__">getword</span>(mbuff-&gt;input_encoding, &amp;cd, <span class="string">&#x27;;&#x27;</span>)))</span><br><span class="line">			&#123;</span><br><span class="line">				char *key = <span class="literal">NULL</span>, *word = pair;</span><br><span class="line"></span><br><span class="line">				<span class="keyword">while</span> (<span class="title function_ invoke__">isspace</span>(*cd)) &#123;</span><br><span class="line">					++cd;</span><br><span class="line">				&#125;</span><br></pre></td></tr></table></figure>
+
+<p>存在键值对后,再通过getword方法用”&#x3D;”分割键值对获取key名，然后判断Key值为”name”还是”filename”</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="built_in">strchr</span>(<span class="built_in">pair</span>, <span class="string">&#x27;=&#x27;</span>)) &#123;</span><br><span class="line">	<span class="comment">//通过getword方法获取=前面的key值</span></span><br><span class="line">      key = getword(mbuff-&gt;input_encoding, &amp;<span class="built_in">pair</span>, <span class="string">&#x27;=&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="comment">//key为name的情况</span></span><br><span class="line">      <span class="keyword">if</span> (!strcasecmp(key, <span class="string">&quot;name&quot;</span>)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (param) &#123;</span><br><span class="line">			efree(param);</span><br><span class="line">		&#125;</span><br><span class="line">		param = getword_conf(mbuff-&gt;input_encoding, <span class="built_in">pair</span>);</span><br><span class="line">		<span class="keyword">if</span> (mbuff-&gt;input_encoding &amp;&amp; internal_encoding) &#123;</span><br><span class="line">			<span class="type">unsigned</span> <span class="type">char</span> *new_param;</span><br><span class="line">			<span class="type">size_t</span> new_param_len;</span><br><span class="line">			<span class="keyword">if</span> ((<span class="type">size_t</span>)<span class="number">-1</span> != zend_multibyte_encoding_converter(&amp;new_param, &amp;new_param_len, (<span class="type">unsigned</span> <span class="type">char</span> *)param, <span class="built_in">strlen</span>(param), internal_encoding, mbuff-&gt;input_encoding)) &#123;</span><br><span class="line">				efree(param);</span><br><span class="line">				param = (<span class="type">char</span> *)new_param;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	<span class="comment">//key为filename的情况</span></span><br><span class="line">      &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!strcasecmp(key, <span class="string">&quot;filename&quot;</span>)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (filename) &#123;</span><br><span class="line">			efree(filename);</span><br><span class="line">		&#125;</span><br><span class="line">		filename = getword_conf(mbuff-&gt;input_encoding, <span class="built_in">pair</span>);</span><br><span class="line">		<span class="keyword">if</span> (mbuff-&gt;input_encoding &amp;&amp; internal_encoding) &#123;</span><br><span class="line">			<span class="type">unsigned</span> <span class="type">char</span> *new_filename;</span><br><span class="line">			<span class="type">size_t</span> new_filename_len;</span><br><span class="line">			<span class="keyword">if</span> ((<span class="type">size_t</span>)<span class="number">-1</span> != zend_multibyte_encoding_converter(&amp;new_filename, &amp;new_filename_len, (<span class="type">unsigned</span> <span class="type">char</span> *)filename, <span class="built_in">strlen</span>(filename), internal_encoding, mbuff-&gt;input_encoding)) &#123;</span><br><span class="line">				efree(filename);</span><br><span class="line">				filename = (<span class="type">char</span> *)new_filename;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面主要涉及两个方法：getword、getword_conf</p>
+<p><img src="/posts/9fa41563/php-7.png" title="getword"></p>
+<p>getword:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">char</span> *<span class="title function_">php_ap_getword</span><span class="params">(<span class="type">const</span> zend_encoding *encoding, <span class="type">char</span> **line, <span class="type">char</span> stop)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">char</span> *pos = *line, quote;</span><br><span class="line">	<span class="type">char</span> *res;</span><br><span class="line"></span><br><span class="line">  <span class="comment">//读取词条，指针存在并且不只想结结束符号即进入循环</span></span><br><span class="line">  <span class="keyword">while</span> (*pos &amp;&amp; *pos != stop) &#123;</span><br><span class="line">    <span class="comment">//读取到&quot;或者&#x27;的位置，获取符号后面的数据</span></span><br><span class="line">		<span class="keyword">if</span> ((quote = *pos) == <span class="string">&#x27;&quot;&#x27;</span> || quote == <span class="string">&#x27;\&#x27;&#x27;</span>) &#123;</span><br><span class="line">			++pos;</span><br><span class="line">			<span class="keyword">while</span> (*pos &amp;&amp; *pos != quote) &#123;</span><br><span class="line">        <span class="comment">//如果获取符号中存在\+quote，会跳过\符号，取quote值，比如&quot;test\&quot;,就会忽略掉\符号得到&quot;test&quot;</span></span><br><span class="line">				<span class="keyword">if</span> (*pos == <span class="string">&#x27;\\&#x27;</span> &amp;&amp; pos[<span class="number">1</span>] &amp;&amp; pos[<span class="number">1</span>] == quote) &#123;</span><br><span class="line">					pos += <span class="number">2</span>;</span><br><span class="line">				&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">					++pos;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> (*pos) &#123;</span><br><span class="line">				++pos;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> ++pos;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (*pos == <span class="string">&#x27;\0&#x27;</span>) &#123;</span><br><span class="line">		res = estrdup(*line);</span><br><span class="line">		*line += <span class="built_in">strlen</span>(*line);</span><br><span class="line">		<span class="keyword">return</span> res;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	res = estrndup(*line, pos - *line);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (*pos == stop) &#123;</span><br><span class="line">		++pos;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	*line = pos;</span><br><span class="line">	<span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>getword_conf:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">char</span> *<span class="title function_">php_ap_getword_conf</span><span class="params">(<span class="type">const</span> zend_encoding *encoding, <span class="type">char</span> *str)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="comment">//判断当前str指针是否存在且是否为空</span></span><br><span class="line">  <span class="keyword">while</span> (*str &amp;&amp; <span class="built_in">isspace</span>(*str)) &#123;</span><br><span class="line">		++str;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//如果str指针索引循环完不存在的话，表示空，指向&quot;&quot;</span></span><br><span class="line">  <span class="keyword">if</span> (!*str) &#123;</span><br><span class="line">		<span class="keyword">return</span> estrdup(<span class="string">&quot;&quot;</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//索引到以&quot;或者&#x27;的时候，调用substring_conf方法开始从&quot;或者&#x27;字符的后一位开始选取</span></span><br><span class="line">  <span class="keyword">if</span> (*str == <span class="string">&#x27;&quot;&#x27;</span> || *str == <span class="string">&#x27;\&#x27;&#x27;</span>) &#123;</span><br><span class="line">		<span class="type">char</span> quote = *str;</span><br><span class="line"></span><br><span class="line">		str++;</span><br><span class="line">		<span class="keyword">return</span> substring_conf(str, (<span class="type">int</span>)<span class="built_in">strlen</span>(str), quote);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="type">char</span> *strend = str;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">while</span> (*strend &amp;&amp; !<span class="built_in">isspace</span>(*strend)) &#123;</span><br><span class="line">			++strend;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> substring_conf(str, strend - str, <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">char</span> *<span class="title function_">substring_conf</span><span class="params">(<span class="type">char</span> *start, <span class="type">int</span> len, <span class="type">char</span> quote)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">char</span> *result = emalloc(len + <span class="number">1</span>);</span><br><span class="line">	<span class="type">char</span> *resp = result;</span><br><span class="line">	<span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; len &amp;&amp; start[i] != quote; ++i) &#123;</span><br><span class="line">    <span class="comment">//判断字符中存在\\或者\&#x27; \&quot;的情况，进行跳过</span></span><br><span class="line">		<span class="keyword">if</span> (start[i] == <span class="string">&#x27;\\&#x27;</span> &amp;&amp; (start[i + <span class="number">1</span>] == <span class="string">&#x27;\\&#x27;</span> || (quote &amp;&amp; start[i + <span class="number">1</span>] == quote))) &#123;</span><br><span class="line">			*resp++ = start[++i];</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			*resp++ = start[i];</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	*resp = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">	<span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="上传文件限制判断"><a href="#上传文件限制判断" class="headerlink" title="上传文件限制判断"></a>上传文件限制判断</h2><p>继续回到主体中，获取了filename或者name后，接下来对上传主体进行默认的php上传限制判断</p>
+<p><img src="/posts/9fa41563/php-9.png" title="限制判断"></p>
+<p>经过php的默认上传限制判断后，再查看用户提交参数中是否存在MAX_FILE_SIZE字段，即用户定义的上传大小上限，通过自定义大小判断用户上传文件是否超过大小，因此MAX_FILE_SIZE并不能超过PHP中设置的最大上传文件大小。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">		<span class="keyword">if</span> (!strcasecmp(param, <span class="string">&quot;MAX_FILE_SIZE&quot;</span>)) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> HAVE_ATOLL</span></span><br><span class="line">			max_file_size = atoll(value);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">			max_file_size = strtoll(value, <span class="literal">NULL</span>, <span class="number">10</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		efree(param);</span><br><span class="line">		efree(value);</span><br><span class="line">		<span class="keyword">continue</span>;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>判断完大小后，再判断是否进行文件上传<br><img src="/posts/9fa41563/php-10.png" title="是否文件上传"></p>
+<p>如果是文件上传，会进行一个判断，判断param参数（即name参数）</p>
+<ul>
+<li>当name值只存在]字符，即skip_upload &#x3D; 1成立，会忽略上传的文件，如：name]</li>
+<li>当name值只存在[字符，即skip_upload &#x3D; 1成立，会忽略上传的文件，如：name[</li>
+<li>当name值存在[]两个字符，且[位于字段开头位置，c值为0，但实际测试过程还是会上传失败，如：[name]</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* New Rule: never repair potential malicious user input */</span></span><br><span class="line"><span class="keyword">if</span> (!skip_upload) &#123;</span><br><span class="line">	<span class="type">long</span> c = <span class="number">0</span>;</span><br><span class="line">	tmp = param;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (*tmp) &#123;</span><br><span class="line">		<span class="keyword">if</span> (*tmp == <span class="string">&#x27;[&#x27;</span>) &#123;</span><br><span class="line">			c++;</span><br><span class="line">		&#125; <span class="keyword">else</span> <span class="keyword">if</span> (*tmp == <span class="string">&#x27;]&#x27;</span>) &#123;</span><br><span class="line">			c--;</span><br><span class="line">			<span class="keyword">if</span> (tmp[<span class="number">1</span>] &amp;&amp; tmp[<span class="number">1</span>] != <span class="string">&#x27;[&#x27;</span>) &#123;</span><br><span class="line">				skip_upload = <span class="number">1</span>;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> (c &lt; <span class="number">0</span>) &#123;</span><br><span class="line">			skip_upload = <span class="number">1</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">		tmp++;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">/* Brackets should always be closed */</span></span><br><span class="line">	<span class="keyword">if</span>(c != <span class="number">0</span>) &#123;</span><br><span class="line">		skip_upload = <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>parm来源，为获取参数name的值</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//parm来源</span></span><br><span class="line">     <span class="keyword">if</span> (!strcasecmp(key, <span class="string">&quot;name&quot;</span>)) &#123;</span><br><span class="line">	<span class="keyword">if</span> (param) &#123;</span><br><span class="line">		efree(param);</span><br><span class="line">	&#125;</span><br><span class="line">	param = getword_conf(mbuff-&gt;input_encoding, <span class="built_in">pair</span>);</span><br></pre></td></tr></table></figure>
+
+<p>上传失败：</p>
+<p><img src="/posts/9fa41563/php-11.png" title="上传失败"></p>
+<p>后面对文件名的判断,判断文件名是否开头为结尾符号（’\0’表示代码结尾）</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">	<span class="keyword">if</span> (filename[<span class="number">0</span>] == <span class="string">&#x27;\0&#x27;</span>) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DEBUG_FILE_UPLOAD</span></span><br><span class="line">		sapi_module.sapi_error(E_NOTICE, <span class="string">&quot;No file uploaded&quot;</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">		cancel_upload = UPLOAD_ERROR_D;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/posts/9fa41563/php-12.png" title="filename开头判断"></p>
+<p>将%00进行Url编码后上传，即出现错误</p>
+<p><img src="/posts/9fa41563/php-13.png" title="filename开头判断"></p>
+<h2 id="临时文件创建"><a href="#临时文件创建" class="headerlink" title="临时文件创建"></a>临时文件创建</h2><p>文件正常上传判断后，通过<code>php_open_temporary_fd_ex</code>方法创建临时文件</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line">	&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">		fd = php_open_temporary_fd_ex(PG(upload_tmp_dir), <span class="string">&quot;php&quot;</span>, &amp;temp_filename, </span><br><span class="line">		PHP_TMP_FILE_OPEN_BASEDIR_CHECK_ON_FALLBACK);</span><br><span class="line">				upload_cnt--;</span><br><span class="line">				<span class="keyword">if</span> (fd == <span class="number">-1</span>) &#123;</span><br><span class="line">					sapi_module.sapi_error(E_WARNING, <span class="string">&quot;File upload error - unable to create a temporary file&quot;</span>);						cancel_upload = UPLOAD_ERROR_E;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br></pre></td></tr></table></figure>
+<p><code>php_open_temporary_fd_ex</code>方法中再通过调用<code>php_do_open_temporary_file</code>方法进行创建文件，最后返回随机临时文件名</p>
+<p><img src="/posts/9fa41563/php-14.png" title="临时文件创建"></p>
+<p>文件名路径会根据php环境选取对应的默认临时路径</p>
+<p><img src="/posts/9fa41563/php-16.png" title="临时文件创建"></p>
+<p>临时文件名格式为<code>php</code>+<code>随机字符</code>+<code>.tmp</code>结尾</p>
+<p><img src="/posts/9fa41563/php-15.png" title="临时文件创建"></p>
+<p>经过文件名、大小的判断过后通过<code>write</code>方法将文件写入临时文件</p>
+<p><img src="/posts/9fa41563/php-17.png" title="临时文件创建"></p>
+<p>然后通过<code>zend_string_release_ex</code>方法对临时文件进行释放（我理解为关闭释放掉临时文件写入的进程管道）</p>
+<p><img src="/posts/9fa41563/php-18.png" title="临时文件释放"></p>
+<p>对parm参数的数组情况进行对应处理后，进入对filename的安全过滤处理</p>
+<h2 id="filename安全过滤"><a href="#filename安全过滤" class="headerlink" title="filename安全过滤"></a>filename安全过滤</h2><p>有一段注释描述在windows环境下由于特殊符号对路径的影响，所以对filename进行了一些安全处理</p>
+<p>通过php_ap_basename方法对filename进行安全过滤</p>
+<p><img src="/posts/9fa41563/php-19.png" title="安全过滤"></p>
+<p>下列代码对filename进行\或者&#x2F;进行匹配，匹配到的话，就获取最后一个斜线后的内容，前面的内容进行跳过</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">char</span> *<span class="title function_">php_ap_basename</span><span class="params">(<span class="type">const</span> zend_encoding *encoding, <span class="type">char</span> *path)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">char</span> *s = <span class="built_in">strrchr</span>(path, <span class="string">&#x27;\\&#x27;</span>);</span><br><span class="line">	<span class="type">char</span> *s2 = <span class="built_in">strrchr</span>(path, <span class="string">&#x27;/&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (s &amp;&amp; s2) &#123;</span><br><span class="line">		<span class="keyword">if</span> (s &gt; s2) &#123;</span><br><span class="line">			++s;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			s = ++s2;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> s;</span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> (s) &#123;</span><br><span class="line">		<span class="keyword">return</span> ++s;</span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> (s2) &#123;</span><br><span class="line">		<span class="keyword">return</span> ++s2;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> path;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行结果：</p>
+<p><img src="/posts/9fa41563/php-20.png" title="安全过滤"><br><img src="/posts/9fa41563/php-21.png" title="安全过滤"></p>
+<p>最后后面的就是针对各个参数生成$_FILES内容，没有了其它的过滤。</p>
+<h1 id="0x03、调试分析"><a href="#0x03、调试分析" class="headerlink" title="0x03、调试分析"></a>0x03、调试分析</h1><p>主机原因先缺着，后面再补</p>
+<h1 id="0x04、总结"><a href="#0x04、总结" class="headerlink" title="0x04、总结"></a>0x04、总结</h1><p>在没有找到分析文章前，看着是真的费力，理解上很容易跑偏，学习他们的分析文章再看，可能过程中也有理解错的地方，总体也只是对rfc1867协议的部分内容进行浅析，协议的完整处理过程还是理解不全。</p>
+<h1 id="0x05、参考链接"><a href="#0x05、参考链接" class="headerlink" title="0x05、参考链接"></a>0x05、参考链接</h1><p><a target="_blank" rel="noopener" href="https://www.laruence.com/2009/09/26/1103.html">https://www.laruence.com/2009/09/26/1103.html</a><br><a target="_blank" rel="noopener" href="https://blog.csdn.net/gnaw0725/article/details/45869847">https://blog.csdn.net/gnaw0725/article/details/45869847</a><br><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/11486#toc-10">https://xz.aliyun.com/t/11486#toc-10</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/ad3be047.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-01-14 15:19:15
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/php%E5%AE%89%E5%85%A8/" title="php安全">
+                        #php安全
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/php%E5%86%85%E6%A0%B8/" title="php内核">
+                        #php内核
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E8%83%8C%E6%99%AF"><span class="toc-text">0x01、背景</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81rfc1867%E5%8D%8F%E8%AE%AE"><span class="toc-text">0x02、rfc1867协议</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-text">初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96boundary"><span class="toc-text">获取boundary</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90Content-Disposition"><span class="toc-text">解析Content-Disposition</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8A%E4%BC%A0%E6%96%87%E4%BB%B6%E9%99%90%E5%88%B6%E5%88%A4%E6%96%AD"><span class="toc-text">上传文件限制判断</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%B4%E6%97%B6%E6%96%87%E4%BB%B6%E5%88%9B%E5%BB%BA"><span class="toc-text">临时文件创建</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#filename%E5%AE%89%E5%85%A8%E8%BF%87%E6%BB%A4"><span class="toc-text">filename安全过滤</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E8%B0%83%E8%AF%95%E5%88%86%E6%9E%90"><span class="toc-text">0x03、调试分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x04、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x05、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + php7%E5%86%85%E6%A0%B8rfc1867%E5%8D%8F%E8%AE%AE%E5%AF%B9%E6%96%87%E4%BB%B6%E4%B8%8A%E4%BC%A0%E7%9A%84%E8%BF%87%E6%BB%A4%E6%B5%85%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F9fa41563.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/9fa41563.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
