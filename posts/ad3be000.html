@@ -193,7 +193,7 @@
 <h2 id="二、JdbcRowSetImpl本身"><a href="#二、JdbcRowSetImpl本身" class="headerlink" title="二、JdbcRowSetImpl本身"></a>二、JdbcRowSetImpl本身</h2><p>JdbcRowSetImpl链相比较其他链还是比较好理解的</p>
 <p>触发点在<code>setAutoCommit</code>方法</p>
 <p><img src="/posts/ad3be000/fj-1.png" title="setAutoCommit"></p>
-<p>这里有个<code>conn变</code>量，用来获取对象连接，默认值为<code>null</code>未赋值，会进入到<code>else</code>代码段中，调用<code>connect()</code>方法</p>
+<p>这里有个<code>conn</code>变量，用来获取对象连接，默认值为<code>null</code>未赋值，会进入到<code>else</code>代码段中，调用<code>connect()</code>方法</p>
 <p><img src="/posts/ad3be000/fj-2.png" title="connect"></p>
 <p><code>connect</code>方法的本意为获取<code>jdbc</code>连接，其中调用了JNDI远程调用地址</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Context</span> <span class="variable">ctx</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">InitialContext</span>();</span><br><span class="line"><span class="type">DataSource</span> <span class="variable">ds</span> <span class="operator">=</span> (DataSource)ctx.lookup</span><br><span class="line">    (getDataSourceName());</span><br></pre></td></tr></table></figure>
@@ -222,7 +222,7 @@
 <p><img src="/posts/ad3be000/fj-9.png" title="deserialze"></p>
 <p>通过反射获取方法名，再调用执行完成赋值</p>
 <p><img src="/posts/ad3be000/fj-10.png" title="invoke"></p>
-<p><code>dataSourceName</code>字段处理就完成，<code>AutoCommit</code>方法跟上面一样，就不重复写了过程了</p>
+<p><code>dataSourceName</code>字段处理就完成，<code>AutoCommit</code>方法跟上面一样，就不重复写过程了</p>
 <p><code>invoke</code>调用<code>setAutoCommit</code>方法，触发漏洞</p>
 <p><img src="/posts/ad3be000/fj-11.png" title="invoke"></p>
 <p><img src="/posts/ad3be000/fj-12.png" title="invoke"></p>
