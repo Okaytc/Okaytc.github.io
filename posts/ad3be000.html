@@ -333,7 +333,7 @@
 <p><img src="/posts/ad3be000/fj-45.png" title="loadClass"></p>
 <p>经过一些过滤判断，最后将<code>clazz</code>放入<code>map</code>缓存中</p>
 <p><img src="/posts/ad3be000/fj-45.png" title="mappings.put"></p>
-<p><font color="red">“a”主体的代码段的作用就在这里，利用java.lang.Class类绕过黑白名单然后将而已代码类写入map缓存中</font></p>
+<p><font color="red">“a”主体的代码段的作用就在这里，利用java.lang.Class类绕过黑白名单然后将恶意代码类写入map缓存中</font></p>
 <p>然后再次循环解析对象到”b”这里，跟进<code>parseObject</code>方法</p>
 <p><img src="/posts/ad3be000/fj-46.png" title="parseObject"></p>
 <p>再次走到黑白名单过滤方法</p>
