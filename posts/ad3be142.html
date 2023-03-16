@@ -206,6 +206,11 @@
 
 <p>3、签名：由header加密格式加密secretkey形成的签名，用于验证数据是否正确</p>
 <p><img src="/posts/ad3be142/n6.png" title="secretkey"></p>
+<p>至于选择secret base64 encoded选项</p>
+<p>在源码中，位置plugin-default-impl\src\main\java\com\alibaba\nacos\plugin\auth\impl\JwtTokenManager.java中，针对secret会先从配置文件中获取key值</p>
+<p><img src="/posts/ad3be142/n9.png" title="获取Key"></p>
+<p>然后将获取的key值进行base64_decode()解码，因此默认key（SecretKey012345678901234567890123456789012345678901234567890123456789）实际上在程序处理中是作为已经被base64编码过后的值，再将base64解码过后的secret值使用hs256签名</p>
+<p><img src="/posts/ad3be142/n8.png" title="base64_decode"></p>
 <p>当sub对象为nacos，并且签名正确，即可通过nacos鉴权认证，因此由上面部分，使用默认key生成的jwt即可绕过nacos的鉴权</p>
 <p><img src="/posts/ad3be142/n4.png" title="jwt伪造"></p>
 <h1 id="0x06、修复"><a href="#0x06、修复" class="headerlink" title="0x06、修复"></a>0x06、修复</h1><p>1、官方更新补丁：<a target="_blank" rel="noopener" href="https://github.com/alibaba/nacos/releases/tag/2.2.0.1">https://github.com/alibaba/nacos/releases/tag/2.2.0.1</a><br>修复方式：移除了默认key，部署新版本时必须要输入自定义的有效token.secret.key</p>
