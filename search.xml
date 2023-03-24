@@ -4,6 +4,35 @@
   
     
     <entry>
+      <title>MinIO未授权访问(CVE-2023-28432)复现与分析</title>
+      <link href="/posts/3e6cbad7.html"/>
+      <url>/posts/3e6cbad7.html</url>
+      
+        <content type="html"><![CDATA[<h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>MinIO未授权访问(CVE-2023-28432)复现与分析</p><h1 id="0x01、MinIO描述"><a href="#0x01、MinIO描述" class="headerlink" title="0x01、MinIO描述"></a>0x01、MinIO描述</h1><p>MinIO是一个用Golang开发的基于Apache License v2.0开源协议的对象存储服务。</p><h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>MinIO 存在信息泄露漏洞，在集群部署的MinIO中，未经身份认证的远程攻击者通过发送特殊HTTP请求即可获取所有环境变量，其中包括MINIO_SECRET_KEY和MINIO_ROOT_PASSWORD，造成敏感信息泄露，最终可能导致攻击者以管理员身份登录MinIO。</p><h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>RELEASE.2019-12-17T23-16-33Z &lt;&#x3D; MinIO &lt; RELEASE.2023-03-20T20-16-18Z<br>(注：漏洞存在于分布式集群配置情况下的MinIO组件，独立MinIO不受影响)</p><h1 id="0x04、复现"><a href="#0x04、复现" class="headerlink" title="0x04、复现"></a>0x04、复现</h1><h2 id="漏洞复现"><a href="#漏洞复现" class="headerlink" title="漏洞复现"></a>漏洞复现</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /minio/bootstrap/v1/verify</span><br><span class="line">host: ip</span><br><span class="line">Content-Type: application/x-www-form-urlencoded</span><br></pre></td></tr></table></figure><p>实测中不加”Content-Type”字段也能返回数据</p><p><img src="/posts/3e6cbad7/m1.png" title="漏洞复现"></p><h1 id="0x05、分析"><a href="#0x05、分析" class="headerlink" title="0x05、分析"></a>0x05、分析</h1><p>根据官方修复代码段进行简述分析<br>问题出在cmd&#x2F;bootstrap-peer-server.go文件<br>声明的bootstrap相关常量信息</p><p><img src="/posts/3e6cbad7/m2.png" title="bootstrap相关常量"></p><p>入口在调用该文件的<code>registerBootstrapRESTHandlers</code>方法</p><p><img src="/posts/3e6cbad7/m3.png" title="registerBootstrapRESTHandlers"></p><p>其中server是bootstrapRESTServer属性</p><figure class="highlight go"><table><tr><td class="code"><pre><span class="line">server := &amp;bootstrapRESTServer&#123;&#125;</span><br></pre></td></tr></table></figure><p>然后的subrouter是路由前缀，指向地址bootstrapRESTPrefix也就是上面常量（minioReservedBucketPath + “&#x2F;bootstrap”）即路径：minio&#x2F;bootstrap</p><figure class="highlight go"><table><tr><td class="code"><pre><span class="line">subrouter := router.PathPrefix(bootstrapRESTPrefix).Subrouter()</span><br></pre></td></tr></table></figure><p>最后调用，方法类型为post，路径（bootstrapRESTVersionPrefix + bootstrapRESTMethodVerify）即上面的常量组合起来的路径（v1&#x2F;verify）,然后调用VerifyHandler</p><figure class="highlight go"><table><tr><td class="code"><pre><span class="line">subrouter.Methods(http.MethodPost).Path(bootstrapRESTVersionPrefix + bootstrapRESTMethodVerify).HandlerFunc(</span><br><span class="line">httpTraceHdrs(server.VerifyHandler))</span><br></pre></td></tr></table></figure><p><img src="/posts/3e6cbad7/m4.png" title="VerifyHandler"></p><p>其中ctx为获取的包含请求、响应和其他的上下文信息</p><figure class="highlight go"><table><tr><td class="code"><pre><span class="line">ctx := newContext(r, w, <span class="string">&quot;VerifyHandler&quot;</span>)</span><br></pre></td></tr></table></figure><p>然后获取系统配置信息</p><figure class="highlight go"><table><tr><td class="code"><pre><span class="line">cfg := getServerSystemCfg()</span><br></pre></td></tr></table></figure><p>这里获取环境变量列表中前缀为”MINIO_”的数据，但遇到skipEnvs[]数组中的变量名则跳过</p><p><img src="/posts/3e6cbad7/m5.png" title="getServerSystemCfg"></p><p>也就是图中红色区域的环境变量名字，将不存储在列表中（目的是这些变量的值内容不会输出出来，因此更新后加了绿色区域的一些环境变量，也让其不输出）</p><p><img src="/posts/3e6cbad7/m6.png" title="getServerSystemCfg"></p><p>获取后系统配置信息，调用logger.LogIf方法，其中会将ctx获取的上下文请求进行写入http响应体中，响应内容则为cfg即系统配置变量的值内容</p><p><img src="/posts/3e6cbad7/m7.png" title="getServerSystemCfg"></p><p>因此在POST请求&#x2F;minio&#x2F;bootstrap&#x2F;v1&#x2F;verify路径时，会返回系统配置信息</p><p><img src="/posts/3e6cbad7/m1.png" title="写入HTTP响应体"></p><p>其中不包括下列跳过的配置内容</p><p><img src="/posts/3e6cbad7/m8.png" title="getServerSystemCfg"></p><p>至此结束，实际就是接口的未授权访问，返回了系统配置信息</p><h1 id="0x06、修复"><a href="#0x06、修复" class="headerlink" title="0x06、修复"></a>0x06、修复</h1><p>目前官方已发布安全修复版本，受影响用户可以升级到RELEASE.2023-03-20T20-16-18Z及以上版本。</p><p><a href="https://github.com/minio/minio/releases/tag/RELEASE.2023-03-20T20-16-18Z">https://github.com/minio/minio/releases/tag/RELEASE.2023-03-20T20-16-18Z</a></p><p>修复方式：</p><ul><li>添加了请求方法storageServerRequestValidate（）进行请求黑名单匹配，匹配到则将错误写入响应日志并返回，不会进入logger.LogIf方法中写入http响应的阶段。</li></ul><p><img src="/posts/3e6cbad7/m9.png" title="getServerSystemCfg"></p><ul><li>添加环境变量过滤，将更多的敏感系统配置信息进行跳过不显示</li></ul><p><img src="/posts/3e6cbad7/m10.png" title="getServerSystemCfg"></p><h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a href="https://github.com/minio/minio/security/advisories/GHSA-6xvq-wj2x-3h3q">https://github.com/minio/minio/security/advisories/GHSA-6xvq-wj2x-3h3q</a><br><a href="https://mp.weixin.qq.com/s/0rOObnlqoJY7KJSRnhNJuA">https://mp.weixin.qq.com/s/0rOObnlqoJY7KJSRnhNJuA</a></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 漏洞复现 </category>
+          
+          <category> 代码审计 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 漏洞复现 </tag>
+            
+            <tag> 代码审计 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>java安全-CB1&amp;CB2无依赖CC链学习与分析</title>
       <link href="/posts/638f8ee9.html"/>
       <url>/posts/638f8ee9.html</url>
