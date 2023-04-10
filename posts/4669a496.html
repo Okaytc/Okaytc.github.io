@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      Fineract-SQL注入漏洞(CVE-2023-25197)原理分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Fineract-SQL注入漏洞(CVE-2023-25197)原理分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-10 14:23:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                    #代码审计
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析，还有个编号CVE-2023-25196是一起的sql注入的漏洞，但编号CVE-2023-25196在官方提出的补丁即1.8.3版本中仅修复了个获取时间的方式，未找到sql注入的修复的情况，重要修复在1.8.4版本中修复的。</p>
+<h1 id="0x01、Fineract描述"><a href="#0x01、Fineract描述" class="headerlink" title="0x01、Fineract描述"></a>0x01、Fineract描述</h1><p>Apache Fineract 是一个开源的系统，用于核心银行系统平台化建设。为创业者、金融机构和服务提供商提供了一个可靠、健壮的、可负担得起的金融服务解决方案。</p>
+<h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>该项目受影响版本存在SQL注入漏洞,由于SQLInjectionValidator.java中对于单引号等特殊元素处理不当，具备登录权限的攻击者可在处理分页时通过控制sortOrder、orderBy参数进行SQL注入。</p>
+<h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>1.4 &lt;&#x3D; Apache Fineract版本 &lt;&#x3D; 1.8.3</p>
+<h1 id="0x04、环境搭建"><a href="#0x04、环境搭建" class="headerlink" title="0x04、环境搭建"></a>0x04、环境搭建</h1><p>下载漏洞版本环境：（本文下载版本1.8.3）<br><a target="_blank" rel="noopener" href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p>
+<p>运行前提需要安装mysql&#x2F;MariaDB数据库，默认运行端口3306，如果使用本地运行则需要确认数据库的连接用户密码是root&#x2F;mysql，否则会构建报错</p>
+<p>本地运行：<br><img src="/posts/4669a496/f20.png" title="本地运行"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">./gradlew createDB -PdbName=fineract_tenants</span><br><span class="line">./gradlew createDB -PdbName=fineract_default</span><br><span class="line">./gradlew bootRun</span><br></pre></td></tr></table></figure>
+
+<p>出现<code> :fineract-provider:bootRun</code>则运行正常</p>
+<p><img src="/posts/4669a496/f21.png" title="本地运行"></p>
+<h1 id="0x05、复现"><a href="#0x05、复现" class="headerlink" title="0x05、复现"></a>0x05、复现</h1><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
+<h1 id="0x06、分析"><a href="#0x06、分析" class="headerlink" title="0x06、分析"></a>0x06、分析</h1><p>分析前提：</p>
+<p>该漏洞需要身份认证通过的前提（漏洞比较鸡肋的原因），对请求体中添加<code>Authorization</code>认证字段才能访问后续的接口</p>
+<p><img src="/posts/4669a496/f19.png" title="认证前提"></p>
+<p>正式分析：</p>
+<p>预警通报显示漏洞版本存在sql注入，查看修复版本对漏洞点的修复<br>核心修复在PaginationParameters.java文件，对构造方法中的<code>orderBy</code>、<code>sortOrder</code>字段添加了输入校验</p>
+<p><img src="/posts/4669a496/f3.png" title="问题文件"></p>
+<p>新增了输入校验，遍历存在特殊字符则抛出错误</p>
+<p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p>
+<p>核心就在哪些接口对<code>orderBy</code>、<code>sortOrder</code>字段进行了sql语句调用</p>
+<p><code>PaginationParameters</code>本类中通过<code>getter</code>对<code>orderBy</code>、<code>sortOrder</code>字段进行获取，通过<code>orderBySql</code>和<code>paginationSql</code>方法对sql语句进行符加<code>orderBy</code>、<code>sortOrder</code>字段</p>
+<p><img src="/posts/4669a496/f6.png" title="获取字段"><br><img src="/posts/4669a496/f16.png" title="获取字段"></p>
+<p>接着看<code>PaginationParameters</code>类的实例化，通过<code>instance</code>方法对类进行实例化，意思调用该类的<code>orderBy</code>、<code>sortOrder</code>字段，则会通过调用该类的<code>instance</code>方法进行实例化</p>
+<p><img src="/posts/4669a496/f7.png" title="实例化"></p>
+<p>查看该类的调用情况，其中有5个类进行了调用</p>
+<p><img src="/posts/4669a496/f8.png" title="调用情况"></p>
+<p>查看每个类中的调用情况，这些类的调用流程大体上差不多，通过访问的路径进行获取参数字段，然后实例化<code>PaginationParameters</code>类</p>
+<p><img src="/posts/4669a496/f9.png" title="获取参数字段"></p>
+<p>有些类会对<code>paged</code>参数进行判断，然后进入不同的方法，但核心都会调用到自身xxx类的xxxReadPlatformService接口中调用retrievexxx方法</p>
+<p><img src="/posts/4669a496/f10.png" title="page参数"></p>
+<p>查看retrievexxx方法对<code>PaginationParameters</code>类的处理，找到对应类实现xxxReadPlatformService接口的类，以<code>AuditsApiResource</code>类为例</p>
+<p><img src="/posts/4669a496/f13.png" title="AuditsApiResource"><br><img src="/posts/4669a496/f11.png" title="实现接口类"></p>
+<p>找到对应调用接口的<code>retrievePaginatedAuditEntries</code>方法</p>
+<p><img src="/posts/4669a496/f12.png" title="处理sql方法"></p>
+<p>其中<code>paginationParametersDataValidator.validateParameterValues</code>方法会对<code>orderBy</code>、<code>sortOrder</code>字段进行白名单校验，如果<code>orderBy</code>、<code>sortOrder</code>字段不是白名单列表中支持的参数，则会抛出错误</p>
+<p><img src="/posts/4669a496/f14.png" title="白名单校验"></p>
+<p>此类存在白名单校验的方法均无法实现sql注入，因此需要找到调用方法中不存在白名单校验的类</p>
+<p>找到其中调用<code>PaginationParameters</code>实例化的类<code>RecurringDepositAccountsApiResource</code>（搜索按字母排序这个也是排在最后，前面的类每个都看了都进行了白名单检测，一度怀疑漏洞点触发位置的排查思路是否不正确，直到看完最后一个类的最后一个调用方法才看到没有进行检测，不得不说这些挖漏洞的作者确实心细）</p>
+<p><img src="/posts/4669a496/f15.png" title="RecurringDepositAccountsApiResource"></p>
+<p>其中当<code>paged</code>参数为<code>false</code>或者不存在时，调用<code>this.depositAccountReadPlatformService.retrieveAll</code>方法</p>
+<p><img src="/posts/4669a496/f17.png" title="retrieveAll"></p>
+<p>该方法直接调用<code>paginationSql</code>方法追加了<code>orderBy/sortOrder</code>字段，未进行白名单校验，直接执行了sql语句</p>
+<p><img src="/posts/4669a496/f16.png" title="获取字段"><br><img src="/posts/4669a496/f18.png" title="未进行白名单校验"></p>
+<p>因此该类当<code>paged</code>参数不存在或者为<code>false</code>时，即存在sql注入漏洞</p>
+<p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
+<p>分析没有直接给出poc，网上还没有公开poc，但原理调用比较简单，看完自己调试也大体能找到漏洞位置，就暂不直接贴出来了，主要是学习分析思路。</p>
+<h1 id="0x07、修复"><a href="#0x07、修复" class="headerlink" title="0x07、修复"></a>0x07、修复</h1><p>官方以推出修复版本1.8.4<br>核心修复在PaginationParameters.java文件，对构造方法中的orderBy、sortOrder字段添加了输入校验</p>
+<p><img src="/posts/4669a496/f3.png" title="问题文件"></p>
+<p>新增了输入校验，遍历存在特殊字符则抛出错误</p>
+<p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p>
+<p>该修复方式直接从根源上初始调用实例化该类时就对orderBy、sortOrder字段进行了校验过滤</p>
+<h1 id="0x08、参考链接"><a href="#0x08、参考链接" class="headerlink" title="0x08、参考链接"></a>0x08、参考链接</h1><p><a target="_blank" rel="noopener" href="https://www.oscs1024.com/hd/MPS-2023-3839">https://www.oscs1024.com/hd/MPS-2023-3839</a><br><a target="_blank" rel="noopener" href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/3e6cbad8.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-10 14:23:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                        #代码审计
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Fineract%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Fineract描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%88%86%E6%9E%90"><span class="toc-text">0x06、分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + Fineract-SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E(CVE-2023-25197)%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F4669a496.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/4669a496.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>

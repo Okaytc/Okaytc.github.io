@@ -4,6 +4,35 @@
   
     
     <entry>
+      <title>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析</title>
+      <link href="/posts/4669a496.html"/>
+      <url>/posts/4669a496.html</url>
+      
+        <content type="html"><![CDATA[<h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析，还有个编号CVE-2023-25196是一起的sql注入的漏洞，但编号CVE-2023-25196在官方提出的补丁即1.8.3版本中仅修复了个获取时间的方式，未找到sql注入的修复的情况，重要修复在1.8.4版本中修复的。</p><h1 id="0x01、Fineract描述"><a href="#0x01、Fineract描述" class="headerlink" title="0x01、Fineract描述"></a>0x01、Fineract描述</h1><p>Apache Fineract 是一个开源的系统，用于核心银行系统平台化建设。为创业者、金融机构和服务提供商提供了一个可靠、健壮的、可负担得起的金融服务解决方案。</p><h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>该项目受影响版本存在SQL注入漏洞,由于SQLInjectionValidator.java中对于单引号等特殊元素处理不当，具备登录权限的攻击者可在处理分页时通过控制sortOrder、orderBy参数进行SQL注入。</p><h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>1.4 &lt;&#x3D; Apache Fineract版本 &lt;&#x3D; 1.8.3</p><h1 id="0x04、环境搭建"><a href="#0x04、环境搭建" class="headerlink" title="0x04、环境搭建"></a>0x04、环境搭建</h1><p>下载漏洞版本环境：（本文下载版本1.8.3）<br><a href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p><p>运行前提需要安装mysql&#x2F;MariaDB数据库，默认运行端口3306，如果使用本地运行则需要确认数据库的连接用户密码是root&#x2F;mysql，否则会构建报错</p><p>本地运行：<br><img src="/posts/4669a496/f20.png" title="本地运行"></p><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">./gradlew createDB -PdbName=fineract_tenants</span><br><span class="line">./gradlew createDB -PdbName=fineract_default</span><br><span class="line">./gradlew bootRun</span><br></pre></td></tr></table></figure><p>出现<code> :fineract-provider:bootRun</code>则运行正常</p><p><img src="/posts/4669a496/f21.png" title="本地运行"></p><h1 id="0x05、复现"><a href="#0x05、复现" class="headerlink" title="0x05、复现"></a>0x05、复现</h1><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p><h1 id="0x06、分析"><a href="#0x06、分析" class="headerlink" title="0x06、分析"></a>0x06、分析</h1><p>分析前提：</p><p>该漏洞需要身份认证通过的前提（漏洞比较鸡肋的原因），对请求体中添加<code>Authorization</code>认证字段才能访问后续的接口</p><p><img src="/posts/4669a496/f19.png" title="认证前提"></p><p>正式分析：</p><p>预警通报显示漏洞版本存在sql注入，查看修复版本对漏洞点的修复<br>核心修复在PaginationParameters.java文件，对构造方法中的<code>orderBy</code>、<code>sortOrder</code>字段添加了输入校验</p><p><img src="/posts/4669a496/f3.png" title="问题文件"></p><p>新增了输入校验，遍历存在特殊字符则抛出错误</p><p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p><p>核心就在哪些接口对<code>orderBy</code>、<code>sortOrder</code>字段进行了sql语句调用</p><p><code>PaginationParameters</code>本类中通过<code>getter</code>对<code>orderBy</code>、<code>sortOrder</code>字段进行获取，通过<code>orderBySql</code>和<code>paginationSql</code>方法对sql语句进行符加<code>orderBy</code>、<code>sortOrder</code>字段</p><p><img src="/posts/4669a496/f6.png" title="获取字段"><br><img src="/posts/4669a496/f16.png" title="获取字段"></p><p>接着看<code>PaginationParameters</code>类的实例化，通过<code>instance</code>方法对类进行实例化，意思调用该类的<code>orderBy</code>、<code>sortOrder</code>字段，则会通过调用该类的<code>instance</code>方法进行实例化</p><p><img src="/posts/4669a496/f7.png" title="实例化"></p><p>查看该类的调用情况，其中有5个类进行了调用</p><p><img src="/posts/4669a496/f8.png" title="调用情况"></p><p>查看每个类中的调用情况，这些类的调用流程大体上差不多，通过访问的路径进行获取参数字段，然后实例化<code>PaginationParameters</code>类</p><p><img src="/posts/4669a496/f9.png" title="获取参数字段"></p><p>有些类会对<code>paged</code>参数进行判断，然后进入不同的方法，但核心都会调用到自身xxx类的xxxReadPlatformService接口中调用retrievexxx方法</p><p><img src="/posts/4669a496/f10.png" title="page参数"></p><p>查看retrievexxx方法对<code>PaginationParameters</code>类的处理，找到对应类实现xxxReadPlatformService接口的类，以<code>AuditsApiResource</code>类为例</p><p><img src="/posts/4669a496/f13.png" title="AuditsApiResource"><br><img src="/posts/4669a496/f11.png" title="实现接口类"></p><p>找到对应调用接口的<code>retrievePaginatedAuditEntries</code>方法</p><p><img src="/posts/4669a496/f12.png" title="处理sql方法"></p><p>其中<code>paginationParametersDataValidator.validateParameterValues</code>方法会对<code>orderBy</code>、<code>sortOrder</code>字段进行白名单校验，如果<code>orderBy</code>、<code>sortOrder</code>字段不是白名单列表中支持的参数，则会抛出错误</p><p><img src="/posts/4669a496/f14.png" title="白名单校验"></p><p>此类存在白名单校验的方法均无法实现sql注入，因此需要找到调用方法中不存在白名单校验的类</p><p>找到其中调用<code>PaginationParameters</code>实例化的类<code>RecurringDepositAccountsApiResource</code>（搜索按字母排序这个也是排在最后，前面的类每个都看了都进行了白名单检测，一度怀疑漏洞点触发位置的排查思路是否不正确，直到看完最后一个类的最后一个调用方法才看到没有进行检测，不得不说这些挖漏洞的作者确实心细）</p><p><img src="/posts/4669a496/f15.png" title="RecurringDepositAccountsApiResource"></p><p>其中当<code>paged</code>参数为<code>false</code>或者不存在时，调用<code>this.depositAccountReadPlatformService.retrieveAll</code>方法</p><p><img src="/posts/4669a496/f17.png" title="retrieveAll"></p><p>该方法直接调用<code>paginationSql</code>方法追加了<code>orderBy/sortOrder</code>字段，未进行白名单校验，直接执行了sql语句</p><p><img src="/posts/4669a496/f16.png" title="获取字段"><br><img src="/posts/4669a496/f18.png" title="未进行白名单校验"></p><p>因此该类当<code>paged</code>参数不存在或者为<code>false</code>时，即存在sql注入漏洞</p><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p><p>分析没有直接给出poc，网上还没有公开poc，但原理调用比较简单，看完自己调试也大体能找到漏洞位置，就暂不直接贴出来了，主要是学习分析思路。</p><h1 id="0x07、修复"><a href="#0x07、修复" class="headerlink" title="0x07、修复"></a>0x07、修复</h1><p>官方以推出修复版本1.8.4<br>核心修复在PaginationParameters.java文件，对构造方法中的orderBy、sortOrder字段添加了输入校验</p><p><img src="/posts/4669a496/f3.png" title="问题文件"></p><p>新增了输入校验，遍历存在特殊字符则抛出错误</p><p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p><p>该修复方式直接从根源上初始调用实例化该类时就对orderBy、sortOrder字段进行了校验过滤</p><h1 id="0x08、参考链接"><a href="#0x08、参考链接" class="headerlink" title="0x08、参考链接"></a>0x08、参考链接</h1><p><a href="https://www.oscs1024.com/hd/MPS-2023-3839">https://www.oscs1024.com/hd/MPS-2023-3839</a><br><a href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 漏洞复现 </category>
+          
+          <category> 代码审计 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 漏洞复现 </tag>
+            
+            <tag> 代码审计 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Dubbo反序列化漏洞(CVE-2023-23638)复现与分析</title>
       <link href="/posts/3e6cbad8.html"/>
       <url>/posts/3e6cbad8.html</url>
