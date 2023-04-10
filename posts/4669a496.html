@@ -192,8 +192,8 @@
 
 <p>出现<code> :fineract-provider:bootRun</code>则运行正常</p>
 <p><img src="/posts/4669a496/f21.png" title="本地运行"></p>
-<h1 id="0x05、复现"><a href="#0x05、复现" class="headerlink" title="0x05、复现"></a>0x05、复现</h1><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
-<h1 id="0x06、分析"><a href="#0x06、分析" class="headerlink" title="0x06、分析"></a>0x06、分析</h1><p>分析前提：</p>
+<h1 id="0x05、漏洞复现"><a href="#0x05、漏洞复现" class="headerlink" title="0x05、漏洞复现"></a>0x05、漏洞复现</h1><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
+<h1 id="0x06、原理分析"><a href="#0x06、原理分析" class="headerlink" title="0x06、原理分析"></a>0x06、原理分析</h1><p>分析前提：</p>
 <p>该漏洞需要身份认证通过的前提（漏洞比较鸡肋的原因），对请求体中添加<code>Authorization</code>认证字段才能访问后续的接口</p>
 <p><img src="/posts/4669a496/f19.png" title="认证前提"></p>
 <p>正式分析：</p>
@@ -228,7 +228,7 @@
 <p>因此该类当<code>paged</code>参数不存在或者为<code>false</code>时，即存在sql注入漏洞</p>
 <p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
 <p>分析没有直接给出poc，网上还没有公开poc，但原理调用比较简单，看完自己调试也大体能找到漏洞位置，就暂不直接贴出来了，主要是学习分析思路。</p>
-<h1 id="0x07、修复"><a href="#0x07、修复" class="headerlink" title="0x07、修复"></a>0x07、修复</h1><p>官方以推出修复版本1.8.4<br>核心修复在PaginationParameters.java文件，对构造方法中的orderBy、sortOrder字段添加了输入校验</p>
+<h1 id="0x07、漏洞修复"><a href="#0x07、漏洞修复" class="headerlink" title="0x07、漏洞修复"></a>0x07、漏洞修复</h1><p>官方以推出修复版本1.8.4<br>核心修复在PaginationParameters.java文件，对构造方法中的orderBy、sortOrder字段添加了输入校验</p>
 <p><img src="/posts/4669a496/f3.png" title="问题文件"></p>
 <p>新增了输入校验，遍历存在特殊字符则抛出错误</p>
 <p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p>
@@ -284,7 +284,7 @@
     <div class="title">目录</div>
     <div class="catalog-content">
       
-        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Fineract%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Fineract描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%88%86%E6%9E%90"><span class="toc-text">0x06、分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Fineract%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Fineract描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x06、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
       
     </div>
   </div>
