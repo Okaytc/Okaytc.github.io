@@ -11,7 +11,7 @@
   
   <title>
     
-      Fineract-SQL注入漏洞(CVE-2023-25197)原理分析 
+      瑞友天翼应用虚拟化系统远程代码执行漏洞复现与分析 
       
       
       |
@@ -155,11 +155,11 @@
   <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
   <div class="container post-details" id="post-details">
     <div class="post-content">
-      <div class="post-title">Fineract-SQL注入漏洞(CVE-2023-25197)原理分析</div>
+      <div class="post-title">瑞友天翼应用虚拟化系统远程代码执行漏洞复现与分析</div>
       <div class="post-attach">
         <span class="post-pubtime">
           <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
-          2023-04-10 14:23:00
+          2023-04-13 14:23:00
         </span>
         
               <span class="post-tags">
@@ -181,66 +181,79 @@
           
       </div>
       <div class="markdown-body">
-        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析，还有个编号CVE-2023-25196是一起的sql注入的漏洞，但编号CVE-2023-25196在官方提出的补丁即1.8.3版本中仅修复了个获取时间的方式，未找到sql注入的修复的情况，重要修复在1.8.4版本中修复的。</p>
-<h1 id="0x01、Fineract描述"><a href="#0x01、Fineract描述" class="headerlink" title="0x01、Fineract描述"></a>0x01、Fineract描述</h1><p>Apache Fineract 是一个开源的系统，用于核心银行系统平台化建设。为创业者、金融机构和服务提供商提供了一个可靠、健壮的、可负担得起的金融服务解决方案。</p>
-<h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>该项目受影响版本存在SQL注入漏洞,由于SQLInjectionValidator.java中对于单引号等特殊元素处理不当，具备登录权限的攻击者可在处理分页时通过控制sortOrder、orderBy参数进行SQL注入。</p>
-<h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>1.4 &lt;&#x3D; Apache Fineract版本 &lt;&#x3D; 1.8.3</p>
-<h1 id="0x04、环境搭建"><a href="#0x04、环境搭建" class="headerlink" title="0x04、环境搭建"></a>0x04、环境搭建</h1><p>下载漏洞版本环境：（本文下载版本1.8.3）<br><a target="_blank" rel="noopener" href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p>
-<p>运行前提需要安装mysql&#x2F;MariaDB数据库，默认运行端口3306，如果使用本地运行则需要确认数据库的连接用户密码是root&#x2F;mysql，否则会构建报错</p>
-<p>本地运行：<br><img src="/posts/4669a496/f20.png" title="本地运行"></p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">./gradlew createDB -PdbName=fineract_tenants</span><br><span class="line">./gradlew createDB -PdbName=fineract_default</span><br><span class="line">./gradlew bootRun</span><br></pre></td></tr></table></figure>
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>核心由SQL注入引起的RCE，在没思考SQL注入之前，单看漏洞描述（远程代码执行），前后对比新旧版本看了老半天也没发现修改的哪处代码有代码执行，后面通过一些通报预警描述的由于SQL注入引起的才明白过来，算是分析走的坑吧。还是记录分析过程，文章偏向过程分析的思路和思考。</p>
+<h1 id="0x01、应用描述"><a href="#0x01、应用描述" class="headerlink" title="0x01、应用描述"></a>0x01、应用描述</h1><p>瑞友天翼应用虚拟化系统（GWT System）是国内具有自主知识产权的应用虚拟化平台，是基于服务器计算（Server-based Computing）的应用虚拟化平台。它将用户所有应用软件（ERP、OA、CRM、PDM、CAD……）集中部署在天翼服务器（群）上，客户端通过WEB即可快速安全的访问经服务器上授权的应用软件，实现集中应用、远程接入、协同办公等，从而为用户打造集中、便捷、安全、高效的虚拟化支撑平台。操作终端无需再安装应用程序，通过天翼独特的RAP 协议（Remote Application Protocol），即可让用户快速访问服务器上的各类应用软件；天翼RAP 协议只传输鼠标、键盘及屏幕变化的矢量数据，访问仅需3KB&#x2F;s（20kbps）的带宽，用户不再受客户端和连接性能要求的限制，在任何时间、任何地点，利用任何设备、任何网络连接方式，即可高效安全地访问服务器（群）上的应用程序和关键资源。</p>
+<h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>瑞友天翼应用虚拟化系统存在远程代码执行漏洞，未经身份认证的远程攻击者可以利用该漏洞在目标系统上执行任意代码。</p>
+<h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>5.x &lt;&#x3D; 瑞友天翼应用虚拟化系统 &lt;&#x3D; 7.0.2.1</p>
+<h1 id="0x04、环境搭建"><a href="#0x04、环境搭建" class="headerlink" title="0x04、环境搭建"></a>0x04、环境搭建</h1><p>下载的漏洞版本安全性未知，就不贴出来了，安装包是个集成环境，自带了php、mysql环境，下载安装包一键式安装起来就行</p>
+<p><img src="/posts/4669a499/r1.png" title="环境安装"></p>
+<p>默认路径：C:\Program Files (x86)\RealFriend\Rap Server\</p>
+<h1 id="0x05、漏洞复现"><a href="#0x05、漏洞复现" class="headerlink" title="0x05、漏洞复现"></a>0x05、漏洞复现</h1><p><img src="/posts/4669a499/r2.png" title="漏洞复现"><br><img src="/posts/4669a499/r3.png" title="漏洞复现"></p>
+<h1 id="0x06、原理分析"><a href="#0x06、原理分析" class="headerlink" title="0x06、原理分析"></a>0x06、原理分析</h1><p><strong>分析思路踩坑：</strong><br>(记录下分析过程的一些坑点，对分析成长还是会有帮助)<br>系统的目录结构：</p>
+<p><img src="/posts/4669a499/r4.png" title="目录结构"></p>
+<p>其中7版本以上都用了tp框架，根目录下的主要文件都是XGI后缀格式，使用Php编译访问，官网下载的7版本已经解密，互联网下载的6版本还是加密需要zend解密</p>
+<p>查看更新补丁情况</p>
+<p><img src="/posts/4669a499/r5.png" title="补丁更新"></p>
+<p>更改了大部分的文件的部分内容，但大多都是增删代码的操作，看完并未找到修复远程代码的核心代码，也没找到直接触发远程代码执行的漏洞，直到看到有厂商漏洞通报的漏洞描述写的由SQL注入导致的RCE，这才把关注点转移到SQL注入上。（踩坑一）</p>
+<p>在去发现SQL漏洞点的过程中，先是比较了新版本修复的代码，发现未对用户输入的参数之类进行修复过滤，也就是说分析思路从新旧版本的修复代码对比上，无法直接看出漏洞点。（踩坑二）</p>
+<hr>
+<p><strong>正式分析：</strong><br>系统中采用了大量的SQL查询，并且很多地方都没有进行过滤并且参数可控（分析思路：找到SQL执行点，追溯可控变量，根据判断条件构造代码）</p>
+<p>找到存在SQL执行，变量可控的点，示例点：</p>
+<p>一类是直接在类中进行调用，只需要追溯满足调用条件即可，如下：<br><img src="/posts/4669a499/r6.png" title="SQL执行，变量可控"></p>
+<p>一类是在方法中进行调用，需要追溯在哪些类中调用了该方法，并满足调用条件，如下：<br><img src="/posts/4669a499/r7.png" title="SQL执行，变量可控"></p>
+<p>分析以这两类举例分析漏洞点，该系统还有好些点存在SQL注入，能达到同样的效果，就不赘述</p>
+<p>定位到sql注入点（文件:ConsoleExternalUploadApi.XGI）</p>
+<p><img src="/posts/4669a499/r8.png" title="SQL执行，变量可控"></p>
+<p>其中<code>$adminName</code>变量和<code>$adminPwd</code>变量都是由上面<code>$requestObj</code>数组中得来，<code>$requestObj</code>数组由<code>$paramArr</code>数组分割”_”符号循环取值，而<code>$paramArr</code>数组由<code>$initparams</code>变量分割”__”符号进行循环取值</p>
+<p><img src="/posts/4669a499/r9.png" title="变量可控"></p>
+<p><code>$initparams</code>数组由用户传参传递进来</p>
+<p><img src="/posts/4669a499/r10.png" title="用户传参"></p>
+<p>理逻辑就是：例如<code>$initparams=&quot;a_1__b_2__c_3&quot;</code>，则<code>$paramArr</code>数组读取分割”__”符号，取值则为<code>$paramArr[0]=a_1</code>，<code>$paramArr[1]=b_2</code>，<code>$paramArr[2]=c_3</code>，其中<code>$requestObj</code>由<code>$paramArr</code>数组变量分割”_“进行循环取值，则<code>$requestObj[&#39;a&#39;]=1</code>，<code>$requestObj[&#39;b&#39;]=2</code>这个逻辑。</p>
+<p><code>$initparams</code>变量知道构造格式了，接着看触发sql执行前面需要满足的其他条件</p>
+<p><img src="/posts/4669a499/r11.png" title="其他条件"></p>
+<p>断点是需要满足的条件：</p>
+<ul>
+<li><code>key</code>、<code>sign</code>和<code>initparams</code>存在且不能为空</li>
+<li><code>$keyVal</code>必须存在且不为空，通过<code>getfarminfo( $key )</code>获取</li>
+</ul>
+<p><img src="/posts/4669a499/r12.png" title="getfarminfo"></p>
+<p>其中<code>key</code>为查询<code>farm</code>表中是否存在名为<code>key</code>变量值对应数据库的值，意思<code>key</code>变量必须为数据库中存在的<code>name</code>值，取对应的数据库值给<code>$keyVal</code>变量</p>
+<p><img src="/posts/4669a499/r13.png" title="getfarminfo"><br><img src="/posts/4669a499/r14.png" title="getfarminfo"></p>
+<ul>
+<li><code>$initparams.$keyVal</code>变量拼接的md5值需要等于<code>$sign</code>变量</li>
+</ul>
+<p>上面的条件则为payload参数的必要条件，其中<code>initParams</code>、<code>key</code>、<code>sign</code>的<code>key</code>、<code>sign</code>已经知道了需要构造的数值，剩下<code>initParams</code>变量，只知道构造格式，还不知道需要具体格式构造的字符串，接着看执行sql前对<code>initParams</code>变量的操作</p>
+<p><img src="/posts/4669a499/r15.png" title="initParams"></p>
+<p>需要满足：<code>$initParams=command_xx__user_xx__pwd_xx__serverIdStr_xx</code>，来满足取值</p>
+<p><img src="/posts/4669a499/r16.png" title="满足条件"></p>
+<p>其中需要满足<code>command</code>字段等于（uploadAuthorizeKeyFile|uploadFileToMenu|uploadFileToMenuDo|delAppFile|uploadIcon）这几个值之一。并且<code>user</code>、<code>pwd</code>存在且不为空即可</p>
+<p>接着<code>$adminName</code>和<code>$adminPwd</code>字段存在SQL注入，就能执行sql注入达到rce的目的了</p>
+<p><img src="/posts/4669a499/r17.png" title="SQL注入"></p>
+<p><img src="/posts/4669a499/r18.png" title="SQL注入写入文件"><br><img src="/posts/4669a499/r19.png" title="SQL注入写入文件"></p>
+<p>上述的触发方式每一步payload构造都需要计算<code>sign</code>值，通过<code>$initparams</code>变量和<code>$keyVal</code>拼接再进行md5计算，调试或者跑sqlmap都需要更改脚本添加md5加密操作。</p>
+<figure class="highlight php"><table><tr><td class="code"><pre><span class="line"><span class="variable">$signCalculate</span> = <span class="title function_ invoke__">md5</span>( <span class="variable">$initparams</span>.<span class="variable">$keyVal</span> );</span><br></pre></td></tr></table></figure>
 
-<p>出现<code> :fineract-provider:bootRun</code>则运行正常</p>
-<p><img src="/posts/4669a496/f21.png" title="本地运行"></p>
-<h1 id="0x05、漏洞复现"><a href="#0x05、漏洞复现" class="headerlink" title="0x05、漏洞复现"></a>0x05、漏洞复现</h1><p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
-<h1 id="0x06、原理分析"><a href="#0x06、原理分析" class="headerlink" title="0x06、原理分析"></a>0x06、原理分析</h1><p>分析前提：</p>
-<p>该漏洞需要身份认证通过的前提（漏洞比较鸡肋的原因），对请求体中添加<code>Authorization</code>认证字段才能访问后续的接口</p>
-<p><img src="/posts/4669a496/f19.png" title="认证前提"></p>
-<p>正式分析：</p>
-<p>预警通报显示漏洞版本存在sql注入，查看修复版本对漏洞点的修复<br>核心修复在PaginationParameters.java文件，对构造方法中的<code>orderBy</code>、<code>sortOrder</code>字段添加了输入校验</p>
-<p><img src="/posts/4669a496/f3.png" title="问题文件"></p>
-<p>新增了输入校验，遍历存在特殊字符则抛出错误</p>
-<p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p>
-<p>核心就在哪些接口对<code>orderBy</code>、<code>sortOrder</code>字段进行了sql语句调用</p>
-<p><code>PaginationParameters</code>本类中通过<code>getter</code>对<code>orderBy</code>、<code>sortOrder</code>字段进行获取，通过<code>orderBySql</code>和<code>paginationSql</code>方法对sql语句进行符加<code>orderBy</code>、<code>sortOrder</code>字段</p>
-<p><img src="/posts/4669a496/f6.png" title="获取字段"><br><img src="/posts/4669a496/f16.png" title="获取字段"></p>
-<p>接着看<code>PaginationParameters</code>类的实例化，通过<code>instance</code>方法对类进行实例化，意思调用该类的<code>orderBy</code>、<code>sortOrder</code>字段，则会通过调用该类的<code>instance</code>方法进行实例化</p>
-<p><img src="/posts/4669a496/f7.png" title="实例化"></p>
-<p>查看该类的调用情况，其中有5个类进行了调用</p>
-<p><img src="/posts/4669a496/f8.png" title="调用情况"></p>
-<p>查看每个类中的调用情况，这些类的调用流程大体上差不多，通过访问的路径进行获取参数字段，然后实例化<code>PaginationParameters</code>类</p>
-<p><img src="/posts/4669a496/f9.png" title="获取参数字段"></p>
-<p>有些类会对<code>paged</code>参数进行判断，然后进入不同的方法，但核心都会调用到自身xxx类的xxxReadPlatformService接口中调用retrievexxx方法</p>
-<p><img src="/posts/4669a496/f10.png" title="page参数"></p>
-<p>查看retrievexxx方法对<code>PaginationParameters</code>类的处理，找到对应类实现xxxReadPlatformService接口的类，以<code>AuditsApiResource</code>类为例</p>
-<p><img src="/posts/4669a496/f13.png" title="AuditsApiResource"><br><img src="/posts/4669a496/f11.png" title="实现接口类"></p>
-<p>找到对应调用接口的<code>retrievePaginatedAuditEntries</code>方法</p>
-<p><img src="/posts/4669a496/f12.png" title="处理sql方法"></p>
-<p>其中<code>paginationParametersDataValidator.validateParameterValues</code>方法会对<code>orderBy</code>、<code>sortOrder</code>字段进行白名单校验，如果<code>orderBy</code>、<code>sortOrder</code>字段不是白名单列表中支持的参数，则会抛出错误</p>
-<p><img src="/posts/4669a496/f14.png" title="白名单校验"></p>
-<p>此类存在白名单校验的方法均无法实现sql注入，因此需要找到调用方法中不存在白名单校验的类</p>
-<p>找到其中调用<code>PaginationParameters</code>实例化的类<code>RecurringDepositAccountsApiResource</code>（搜索按字母排序这个也是排在最后，前面的类每个都看了都进行了白名单检测，一度怀疑漏洞点触发位置的排查思路是否不正确，直到看完最后一个类的最后一个调用方法才看到没有进行检测，不得不说这些挖漏洞的作者确实心细）</p>
-<p><img src="/posts/4669a496/f15.png" title="RecurringDepositAccountsApiResource"></p>
-<p>其中当<code>paged</code>参数为<code>false</code>或者不存在时，调用<code>this.depositAccountReadPlatformService.retrieveAll</code>方法</p>
-<p><img src="/posts/4669a496/f17.png" title="retrieveAll"></p>
-<p>该方法直接调用<code>paginationSql</code>方法追加了<code>orderBy/sortOrder</code>字段，未进行白名单校验，直接执行了sql语句</p>
-<p><img src="/posts/4669a496/f16.png" title="获取字段"><br><img src="/posts/4669a496/f18.png" title="未进行白名单校验"></p>
-<p>因此该类当<code>paged</code>参数不存在或者为<code>false</code>时，即存在sql注入漏洞</p>
-<p><img src="/posts/4669a496/f1.png" title="漏洞复现"><br><img src="/posts/4669a496/f2.png" title="漏洞复现"></p>
-<p>分析没有直接给出poc，网上还没有公开poc，但原理调用比较简单，看完自己调试也大体能找到漏洞位置，就暂不直接贴出来了，主要是学习分析思路。</p>
-<h1 id="0x07、漏洞修复"><a href="#0x07、漏洞修复" class="headerlink" title="0x07、漏洞修复"></a>0x07、漏洞修复</h1><p>官方以推出修复版本1.8.4<br>核心修复在PaginationParameters.java文件，对构造方法中的orderBy、sortOrder字段添加了输入校验</p>
-<p><img src="/posts/4669a496/f3.png" title="问题文件"></p>
-<p>新增了输入校验，遍历存在特殊字符则抛出错误</p>
-<p><img src="/posts/4669a496/f4.png" title="问题文件"><br><img src="/posts/4669a496/f5.png" title="问题文件"></p>
-<p>该修复方式直接从根源上初始调用实例化该类时就对orderBy、sortOrder字段进行了校验过滤</p>
-<h1 id="0x08、参考链接"><a href="#0x08、参考链接" class="headerlink" title="0x08、参考链接"></a>0x08、参考链接</h1><p><a target="_blank" rel="noopener" href="https://www.oscs1024.com/hd/MPS-2023-3839">https://www.oscs1024.com/hd/MPS-2023-3839</a><br><a target="_blank" rel="noopener" href="https://github.com/apache/fineract/">https://github.com/apache/fineract/</a></p>
+<p>同文件还有一个触发点（也就是上述中的sql注入调用方法的情况）:<br><img src="/posts/4669a499/r20.png" title="getfarminfo"></p>
+<p>这里的步骤在最开始当<code>initParams</code>、<code>key</code>、<code>sign</code>存在且不为空即可执行到该步骤方法</p>
+<p><img src="/posts/4669a499/r21.png" title="getfarminfo"></p>
+<p>此时的<code>key</code>即调用方法传入的<code>name</code>变量，直接进行sql执行，达到sql注入的目的，就不需要第一种方法中的计算md5、构造<code>$initparams参数</code>等操作</p>
+<p><img src="/posts/4669a499/r22.png" title="执行sql"><br><img src="/posts/4669a499/r23.png" title="sql注入"><br><img src="/posts/4669a499/r24.png" title="sql注入"></p>
+<p>此外提及的执行Sql知道的物理路径：</p>
+<ul>
+<li>默认安装在C:\Program Files (x86)\RealFriend\Rap Server\</li>
+<li>7版本可通过tp框架报错查看路径，默认开启了debug调试</li>
+</ul>
+<p><img src="/posts/4669a499/r25.png" title="sql注入"></p>
+<h1 id="0x07、漏洞修复"><a href="#0x07、漏洞修复" class="headerlink" title="0x07、漏洞修复"></a>0x07、漏洞修复</h1><p>官方已经推出更新补丁升级至7.0.3.1<br><a target="_blank" rel="noopener" href="http://soft.realor.cn:88/Gwt7.0.3.1.exe">http://soft.realor.cn:88/Gwt7.0.3.1.exe</a></p>
+<p>(从代码层面没看出来做了什么代码安全过滤)</p>
+<h1 id="0x08、参考链接"><a href="#0x08、参考链接" class="headerlink" title="0x08、参考链接"></a>0x08、参考链接</h1><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/ZZYWISRS7D1YqJE9S3h7bw">https://mp.weixin.qq.com/s/ZZYWISRS7D1YqJE9S3h7bw</a><br><a target="_blank" rel="noopener" href="http://www.realor.cn/product/xiazaishiyong/">http://www.realor.cn/product/xiazaishiyong/</a></p>
 
       </div>
       
         <div class="prev-or-next">
           <div class="post-foot-next">
             
-              <a href="/posts/3e6cbad8.html" target="_self">
+              <a href="/posts/4669a496.html" target="_self">
                 <i class="iconfont icon-chevronleft"></i>
                 <span>上一页</span>
               </a>
@@ -249,7 +262,7 @@
           <div class="post-attach">
             <span class="post-pubtime">
               <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
-              2023-04-10 14:23:00
+              2023-04-13 14:23:00
             </span>
             
                   <span class="post-tags">
@@ -272,11 +285,6 @@
           </div>
           <div class="post-foot-prev">
             
-              <a href="/posts/4669a499.html" target="_self">
-                <span>下一页</span>
-                <i class="iconfont icon-chevronright"></i>
-              </a>
-            
           </div>
         </div>
       
@@ -289,7 +297,7 @@
     <div class="title">目录</div>
     <div class="catalog-content">
       
-        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81Fineract%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、Fineract描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x06、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E5%BA%94%E7%94%A8%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、应用描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x06、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
       
     </div>
   </div>
@@ -600,12 +608,12 @@
       </a>
       <div class="share-content hidden">
         
-          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + Fineract-SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E(CVE-2023-25197)%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F4669a496.html + '" target="_blank" title="Twitter">
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + %E7%91%9E%E5%8F%8B%E5%A4%A9%E7%BF%BC%E5%BA%94%E7%94%A8%E8%99%9A%E6%8B%9F%E5%8C%96%E7%B3%BB%E7%BB%9F%E8%BF%9C%E7%A8%8B%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F4669a499.html + '" target="_blank" title="Twitter">
             <i class="iconfont icon-twitter"></i>
           </a>
         
         
-          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/4669a496.html" target="_blank" title="Facebook">
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/4669a499.html" target="_blank" title="Facebook">
             <i class="iconfont icon-facebooksquare"></i>
           </a>
         
