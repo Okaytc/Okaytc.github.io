@@ -182,10 +182,10 @@
       </div>
       <div class="markdown-body">
         <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Apache-Solr-RCE（CNVD-2023-27598）复现与分析，核心跟着<a target="_blank" rel="noopener" href="https://blog.noah.360.net/apache-solr-rce/">原作者分析文章</a>进行复现和过程调试。</p>
-<h1 id="0x02、漏洞描述"><a href="#0x02、漏洞描述" class="headerlink" title="0x02、漏洞描述"></a>0x02、漏洞描述</h1><p>Apache Solr是一个开源搜索服务引擎，Solr 使用 Java 语言开发，主要基于 HTTP 和 Apache Lucene 实现。</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>Apache Solr是一个开源搜索服务引擎，Solr 使用 Java 语言开发，主要基于 HTTP 和 Apache Lucene 实现。</p>
 <p>在Apache Solr 受影响版本中，由于Solr默认配置下存在服务端请求伪造漏洞，且SolrResourceLoader中实现了java SPI机制。当Solr以SolrCloud模式启动时，攻击者可以通过构造恶意的solrconfig.xml文件，组合利用从而执行任意java代码。</p>
-<h1 id="0x03、漏洞范围"><a href="#0x03、漏洞范围" class="headerlink" title="0x03、漏洞范围"></a>0x03、漏洞范围</h1><p>8.10.0 &lt;&#x3D; Apache Solr &lt; 9.2.0</p>
-<h1 id="0x04、环境搭建"><a href="#0x04、环境搭建" class="headerlink" title="0x04、环境搭建"></a>0x04、环境搭建</h1><p>github源码：<a target="_blank" rel="noopener" href="https://github.com/apache/solr/tags">https://github.com/apache/solr/tags</a><br>(8系列使用ant ivy-bootstrap、ant idea构建导入idea即可、9系列使用gradle构建编译导入idea)</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>8.10.0 &lt;&#x3D; Apache Solr &lt; 9.2.0</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>github源码：<a target="_blank" rel="noopener" href="https://github.com/apache/solr/tags">https://github.com/apache/solr/tags</a><br>(8系列使用ant ivy-bootstrap、ant idea构建导入idea即可、9系列使用gradle构建编译导入idea)</p>
 <p>官方solr程序安装包，src后缀为源码，下载不带src后缀的即为编译好的程序运行包：<br><a target="_blank" rel="noopener" href="https://dlcdn.apache.org/lucene/solr/">https://dlcdn.apache.org/lucene/solr/</a></p>
 <p><img src="/posts/5a99c826/s2.png" title="安装包"></p>
 <p>运行方式：<br>进入安装包bin目录下</p>
@@ -194,7 +194,7 @@
 <p><img src="/posts/5a99c826/s3.png" title="运行成功"><br><img src="/posts/5a99c826/s5.png" title="运行成功"></p>
 <p>将源码导入idea，开启远程调试就可以进行断点调试</p>
 <p><img src="/posts/5a99c826/s4.png" title="idea调试"><br><img src="/posts/5a99c826/s41.png" title="idea调试"></p>
-<h1 id="0x05、漏洞复现"><a href="#0x05、漏洞复现" class="headerlink" title="0x05、漏洞复现"></a>0x05、漏洞复现</h1><p>通过configset添加主题，name参数对应主题名，可自取</p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>通过configset添加主题，name参数对应主题名，可自取</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">curl -X POST --header &quot;Content-Type:application/octet-stream&quot; --data-binary @conf.zip &quot;http://ip:8983/solr/admin/configs?action=UPLOAD&amp;name=lib9&quot;</span><br></pre></td></tr></table></figure>
 
 <p><img src="/posts/5a99c826/s7.png" title="通过configset添加主题"></p>
@@ -215,7 +215,7 @@
 <p><img src="/posts/5a99c826/s13.png" title="新建主题触发"></p>
 <p>触发漏洞</p>
 <p><img src="/posts/5a99c826/s1.png" title="触发漏洞"></p>
-<h1 id="0x06、原理分析"><a href="#0x06、原理分析" class="headerlink" title="0x06、原理分析"></a>0x06、原理分析</h1><p>根据原作者分析思路，在通过configset上传主题时，将默认的demo进行上传，其中demo中自带了solrconfig.xml文件，创建后可直接创建主题</p>
+<h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>根据原作者分析思路，在通过configset上传主题时，将默认的demo进行上传，其中demo中自带了solrconfig.xml文件，创建后可直接创建主题</p>
 <p><img src="/posts/5a99c826/s14.png" title="上传主题"><br><img src="/posts/5a99c826/s15.png" title="上传主题"></p>
 <p>其中调试<code>SchemaDesignerConfigSetHelper.loadSolrConfig</code>方法创建solr资源加载器过后，读取资源会传入<code>SOLR_CONFIG_XML</code>获取的solrconfig.xml文件</p>
 <p><img src="/posts/5a99c826/s16.png" title="solrconfig.xml"></p>
@@ -258,8 +258,8 @@
 <p><img src="/posts/5a99c826/s38.png" title="恶意jar路径"></p>
 <p>随后进行实例化恶意类调用静态方法触发漏洞</p>
 <p><img src="/posts/5a99c826/s39.png" title="实例化恶意类调用静态方法触发漏洞"><br><img src="/posts/5a99c826/s40.png" title="实例化恶意类调用静态方法触发漏洞"></p>
-<h1 id="0x07、漏洞修复"><a href="#0x07、漏洞修复" class="headerlink" title="0x07、漏洞修复"></a>0x07、漏洞修复</h1><p>官方更新补丁，升级至9.2.0版本：<a target="_blank" rel="noopener" href="https://solr.apache.org/downloads.html">https://solr.apache.org/downloads.html</a></p>
-<h1 id="0x08、参考链接"><a href="#0x08、参考链接" class="headerlink" title="0x08、参考链接"></a>0x08、参考链接</h1><p><a target="_blank" rel="noopener" href="https://blog.noah.360.net/apache-solr-rce/">https://blog.noah.360.net/apache-solr-rce/</a></p>
+<h1 id="0x06、漏洞修复"><a href="#0x06、漏洞修复" class="headerlink" title="0x06、漏洞修复"></a>0x06、漏洞修复</h1><p>官方更新补丁，升级至9.2.0版本：<a target="_blank" rel="noopener" href="https://solr.apache.org/downloads.html">https://solr.apache.org/downloads.html</a></p>
+<h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://blog.noah.360.net/apache-solr-rce/">https://blog.noah.360.net/apache-solr-rce/</a></p>
 
       </div>
       
@@ -310,7 +310,7 @@
     <div class="title">目录</div>
     <div class="catalog-content">
       
-        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x02、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x03、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x04、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x05、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x06、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x07、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x08%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x08、参考链接</span></a></li></ol>
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x05、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x06、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
       
     </div>
   </div>
