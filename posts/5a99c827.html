@@ -264,7 +264,7 @@ sudo ufw enable
 <p><img src="/posts/5a99c827/w36.png" title="调用栈"></p>
 <p>invoke方法再次调用到<code>BasicServerRef#invoke</code></p>
 <p><img src="/posts/5a99c827/w37.png" title="BasicServerRef#invoke"></p>
-<p>中间调用过程可参考这篇<a hraf="https://nosec.org/home/detail/5082.html">文章</a>中的lookup执行在weblogic服务器端的接受流程</p>
+<p>中间调用过程可参考这篇<a target="_blank" rel="noopener" href="https://nosec.org/home/detail/5082.html">文章</a>中的lookup执行在weblogic服务器端的接受流程</p>
 <p>最后调用到触发位置<code>WLNamingManager#getObjectInstance</code>方法</p>
 <p><img src="/posts/5a99c827/w5.png" title="getObjectInstance"></p>
 <p>通过当传入对象<code>boundObject</code>属于<code>LinkRef</code>类时，先会调用<code>LinkRef#getLinkName</code>方法获取连接名</p>
