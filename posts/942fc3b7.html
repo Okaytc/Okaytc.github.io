@@ -217,7 +217,7 @@ sudo ufw enable
 </code></pre>
 <h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>在weblogic远程代码执行漏洞（CVE-2023-21931）分析的时候提到的漏洞触发点在<code>WLNamingManager#getObjectInstance</code>方法，当<code>obj</code>对象为<code>LinkRef</code>时，会获取<code>LinkRef</code>对象远程地址并实现jndi注入</p>
 <p><img src="/posts/942fc3b7/w6.png" title="LinkRef"></p>
-<p>前面的传输过程跟CVE-2023-21931分析时大体一直，主要补充下编号CVE-2023-21839的漏洞触发点位置分析，CVE-2023-21839触发点同为该类<code>WLNamingManager#getObjectInstance</code>方法，当传入的obj对象属于<code>OpaqueReference</code>类时，会调用该对象的<code>getReferent</code>方法</p>
+<p>前面的传输过程跟CVE-2023-21931分析时大体一致，主要补充下编号CVE-2023-21839的漏洞触发点位置分析，CVE-2023-21839触发点为同类<code>WLNamingManager#getObjectInstance</code>方法，当传入的obj对象属于<code>OpaqueReference</code>类时，会调用该对象的<code>getReferent</code>方法</p>
 <p><img src="/posts/942fc3b7/w7.png" title="OpaqueReference"></p>
 <p>其中存在一个类<code>ForeignOpaqueReference</code>，该类实现了<code>OpaqueReference</code>类</p>
 <p><img src="/posts/942fc3b7/w9.png" title="ForeignOpaqueReference"><br><img src="/posts/942fc3b7/w8.png" title="ForeignOpaqueReference"></p>
@@ -274,6 +274,11 @@ sudo ufw enable
               
           </div>
           <div class="post-foot-prev">
+            
+              <a href="/posts/542fc3b7.html" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
             
           </div>
         </div>
