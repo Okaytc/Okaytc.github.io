@@ -4,6 +4,31 @@
   
     
     <entry>
+      <title>Linux Kernel 权限提升（CVE-2023-32233）漏洞复现</title>
+      <link href="/posts/148ffc03.html"/>
+      <url>/posts/148ffc03.html</url>
+      
+        <content type="html"><![CDATA[<h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Linux Kernel 权限提升（CVE-2023-32233）漏洞复现</p><h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>Linux Kernel 的 Netfilter nf_tables子系统存在释放后重用漏洞，在处理 Netfilter nf_tables  基本操作请求时，由于匿名集处理不当，导致可以任意读写内核内存，拥有低权限的本地攻击者可以利用该漏洞将权限提升至ROOT权限。</p><h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>v5.1-rc1 &lt;&#x3D; Linux Kernel &lt;&#x3D; 6.3.1</p><h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>环境使用ubuntu23.04版本<br>官网镜像下载地址：<a href="https://ubuntu.com/download/desktop">https://ubuntu.com/download/desktop</a></p><p>虚拟机新建ubuntu23.04即可</p><h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>exp：<a href="https://github.com/Liuk3r/CVE-2023-32233">https://github.com/Liuk3r/CVE-2023-32233</a></p><p>复现：<br>1、安装编译环境</p><pre><code>sudo apt install gcc libmnl-dev libnftnl-dev</code></pre><p><img src="/posts/148ffc03/l1.png" title="安装编译环境"></p><p>2、编译脚本</p><pre><code>gcc -Wall -o exploit exploit.c -lmnl -lnftnl</code></pre><p><img src="/posts/148ffc03/l2.png" title="编译脚本"></p><p>3、运行exp</p><pre><code>./exploit</code></pre><p><img src="/posts/148ffc03/l3.png" title="运行exp"></p><p>提权成功</p><p><img src="/posts/148ffc03/l4.png" title="提权成功"></p><p>（该exp在已试验kali2023、ubuntu22.04、ubuntu20、ubuntu18上复现提权失败）</p><p><img src="/posts/148ffc03/l5.png" title="提权失败"></p><h1 id="0x05、漏洞修复"><a href="#0x05、漏洞修复" class="headerlink" title="0x05、漏洞修复"></a>0x05、漏洞修复</h1><p>目前厂商已发布安全更新，受影响用户可以更新到安全版本:<br>Linux Kernel 5.15.111<br>Linux Kernel 6.1.28<br>Linux Kernel 6.2.15<br>Linux Kernel 6.3.2</p><p>下载地址：<a href="https://kernel.org/">https://kernel.org/</a></p><h1 id="0x06、参考链接"><a href="#0x06、参考链接" class="headerlink" title="0x06、参考链接"></a>0x06、参考链接</h1><p><a href="https://nox.qianxin.com/article/588">https://nox.qianxin.com/article/588</a><br><a href="https://github.com/Liuk3r/CVE-2023-32233">https://github.com/Liuk3r/CVE-2023-32233</a><br><a href="https://www.openwall.com/lists/oss-security/2023/05/08/4">https://www.openwall.com/lists/oss-security/2023/05/08/4</a></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 漏洞复现 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 漏洞复现 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Linux Kernel 权限提升（CVE-2023-0386）漏洞复现</title>
       <link href="/posts/542fc3b7.html"/>
       <url>/posts/542fc3b7.html</url>

@@ -11,9 +11,9 @@
   
   <title>
     
-      Category 
+      Linux Kernel 权限提升（CVE-2023-32233）漏洞复现 
       
-       : 漏洞复现
+      
       |
     
      Okaytc
@@ -110,113 +110,190 @@
 
 
       <div class="flex-container">
-        <!-- 标签详情页，展示某个标签下的文章列表，url形式：https://yoursite/tags/某个标签/ -->
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
 
-<div class="container category-details">
-  <div class="content-title">
-    <h2>
-      <span>漏洞复现</span>
-    </h2>
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Linux Kernel 权限提升（CVE-2023-32233）漏洞复现</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-18 17:44:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Linux Kernel 权限提升（CVE-2023-32233）漏洞复现</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>Linux Kernel 的 Netfilter nf_tables子系统存在释放后重用漏洞，在处理 Netfilter nf_tables  基本操作请求时，由于匿名集处理不当，导致可以任意读写内核内存，拥有低权限的本地攻击者可以利用该漏洞将权限提升至ROOT权限。</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>v5.1-rc1 &lt;&#x3D; Linux Kernel &lt;&#x3D; 6.3.1</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>环境使用ubuntu23.04版本<br>官网镜像下载地址：<a target="_blank" rel="noopener" href="https://ubuntu.com/download/desktop">https://ubuntu.com/download/desktop</a></p>
+<p>虚拟机新建ubuntu23.04即可</p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>exp：<a target="_blank" rel="noopener" href="https://github.com/Liuk3r/CVE-2023-32233">https://github.com/Liuk3r/CVE-2023-32233</a></p>
+<p>复现：<br>1、安装编译环境</p>
+<pre><code>sudo apt install gcc libmnl-dev libnftnl-dev
+</code></pre>
+<p><img src="/posts/148ffc03/l1.png" title="安装编译环境"></p>
+<p>2、编译脚本</p>
+<pre><code>gcc -Wall -o exploit exploit.c -lmnl -lnftnl
+</code></pre>
+<p><img src="/posts/148ffc03/l2.png" title="编译脚本"></p>
+<p>3、运行exp</p>
+<pre><code>./exploit
+</code></pre>
+<p><img src="/posts/148ffc03/l3.png" title="运行exp"></p>
+<p>提权成功</p>
+<p><img src="/posts/148ffc03/l4.png" title="提权成功"></p>
+<p>（该exp在已试验kali2023、ubuntu22.04、ubuntu20、ubuntu18上复现提权失败）</p>
+<p><img src="/posts/148ffc03/l5.png" title="提权失败"></p>
+<h1 id="0x05、漏洞修复"><a href="#0x05、漏洞修复" class="headerlink" title="0x05、漏洞修复"></a>0x05、漏洞修复</h1><p>目前厂商已发布安全更新，受影响用户可以更新到安全版本:<br>Linux Kernel 5.15.111<br>Linux Kernel 6.1.28<br>Linux Kernel 6.2.15<br>Linux Kernel 6.3.2</p>
+<p>下载地址：<a target="_blank" rel="noopener" href="https://kernel.org/">https://kernel.org/</a></p>
+<h1 id="0x06、参考链接"><a href="#0x06、参考链接" class="headerlink" title="0x06、参考链接"></a>0x06、参考链接</h1><p><a target="_blank" rel="noopener" href="https://nox.qianxin.com/article/588">https://nox.qianxin.com/article/588</a><br><a target="_blank" rel="noopener" href="https://github.com/Liuk3r/CVE-2023-32233">https://github.com/Liuk3r/CVE-2023-32233</a><br><a target="_blank" rel="noopener" href="https://www.openwall.com/lists/oss-security/2023/05/08/4">https://www.openwall.com/lists/oss-security/2023/05/08/4</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/542fc3b7.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-18 17:44:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
   </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Linux Kernel 权限提升（CVE-2023-32233）漏洞复现">
-        <span class="time-m-d">2023-05-18</span>
-        <a href="/posts/148ffc03.html">
-          <span>Linux Kernel 权限提升（CVE-2023-32233）漏洞复现</span>
-        </a>
-      </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x05、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x06、参考链接</span></a></li></ol>
+      
     </div>
+  </div>
+
   
-    <div class="post-list">
-      <div class="post-item" title="Linux Kernel 权限提升（CVE-2023-0386）漏洞复现">
-        <span class="time-m-d">2023-05-07</span>
-        <a href="/posts/542fc3b7.html">
-          <span>Linux Kernel 权限提升（CVE-2023-0386）漏洞复现</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Weblogic远程代码执行漏洞（CVE-2023-21839）复现与分析">
-        <span class="time-m-d">2023-05-05</span>
-        <a href="/posts/942fc3b7.html">
-          <span>Weblogic远程代码执行漏洞（CVE-2023-21839）复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析">
-        <span class="time-m-d">2023-04-28</span>
-        <a href="/posts/5a99c827.html">
-          <span>Weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Apache-Superset身份认证绕过漏洞（CVE-2023-27524）复现与分析">
-        <span class="time-m-d">2023-04-27</span>
-        <a href="/posts/e817cb11.html">
-          <span>Apache-Superset身份认证绕过漏洞（CVE-2023-27524）复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Apache-Solr-RCE（CNVD-2023-27598）复现与分析">
-        <span class="time-m-d">2023-04-23</span>
-        <a href="/posts/5a99c826.html">
-          <span>Apache-Solr-RCE（CNVD-2023-27598）复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="瑞友天翼应用虚拟化系统远程代码执行漏洞复现与分析">
-        <span class="time-m-d">2023-04-13</span>
-        <a href="/posts/4669a499.html">
-          <span>瑞友天翼应用虚拟化系统远程代码执行漏洞复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Fineract-SQL注入漏洞(CVE-2023-25197)原理分析">
-        <span class="time-m-d">2023-04-10</span>
-        <a href="/posts/4669a496.html">
-          <span>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="Dubbo反序列化漏洞(CVE-2023-23638)复现与分析">
-        <span class="time-m-d">2023-03-31</span>
-        <a href="/posts/3e6cbad8.html">
-          <span>Dubbo反序列化漏洞(CVE-2023-23638)复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-    <div class="post-list">
-      <div class="post-item" title="MinIO信息泄露(CVE-2023-28432)复现与分析">
-        <span class="time-m-d">2023-03-24</span>
-        <a href="/posts/3e6cbad7.html">
-          <span>MinIO信息泄露(CVE-2023-28432)复现与分析</span>
-        </a>
-      </div>
-    </div>
-  
-  <nav class="post-navigation">
+<script src="/js/catalog.js"></script>
+
+
+
+
     
-    <span class="page-num">1 / 2</span>
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
     
-      <a href="/categories/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/page/2/"><i class="iconfont icon-angleright"></i></a>
-    
-  </nav>
-</div>
+  </div>
+
 
         
 <div class="footer">
@@ -471,6 +548,24 @@
 
 
         
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + Linux%20Kernel%20%E6%9D%83%E9%99%90%E6%8F%90%E5%8D%87%EF%BC%88CVE-2023-32233%EF%BC%89%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F148ffc03.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/148ffc03.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
   
   
 <script src="/js/shares.js"></script>
