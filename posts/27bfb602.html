@@ -11,7 +11,7 @@
   
   <title>
     
-      Category 
+      用友NC（NCMessageServlet）反序列化漏洞复现与分析 
       
       
       |
@@ -146,19 +146,181 @@
 
 
   
-  <!-- 分类页 url形式：https://yoursite/categories/ -->
-  <div class="container category-index">
-    <div>
-      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Java%E5%AE%89%E5%85%A8/">Java安全</a><span class="category-list-count">17</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/Java%E5%AE%89%E5%85%A8/java%E5%88%A9%E7%94%A8%E9%93%BE/">java利用链</a><span class="category-list-count">12</span></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">漏洞复现</a><span class="category-list-count">13</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/">代码审计</a><span class="category-list-count">11</span></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AE%9E%E6%88%98%E8%AE%B0%E5%BD%95/">实战记录</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/php%E5%AE%89%E5%85%A8/">php安全</a><span class="category-list-count">1</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/php%E5%AE%89%E5%85%A8/php%E5%86%85%E6%A0%B8/">php内核</a><span class="category-list-count">1</span></li></ul></li></ul>
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">用友NC（NCMessageServlet）反序列化漏洞复现与分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-07 12:00:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                    #代码审计
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>用友nc（NCMessageServlet）反序列化漏洞复现与分析，同样也是InvokerServlet引发的问题，调用的Servlet类变成NCMessageServlet类，也是直接实现反序列化，分析内容不多，当做审计过程记录。</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>用友 NC 系统InvokerServlet调用NCMessageServlet过程中存在反序列化漏洞，远程未授权攻击者可向目标服务器发送恶意请求包，最终实现任意代码执行。</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>NC version &lt;&#x3D; 6.5</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>用友NC 6.5安装包网盘下载的，安全性未知，就不贴地址了。</p>
+<p>安装步骤可以参考：<br><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/8242">https://xz.aliyun.com/t/8242</a><br><a target="_blank" rel="noopener" href="https://blog.csdn.net/m0_53100713/article/details/130056482">https://blog.csdn.net/m0_53100713/article/details/130056482</a><br><a target="_blank" rel="noopener" href="https://www.rstk.cn/news/881081.html?action=onClick">https://www.rstk.cn/news/881081.html?action=onClick</a></p>
+<p><img src="/posts/27bfb602/y1.png" title="安装"><br><img src="/posts/27bfb602/y2.png" title="安装"></p>
+<p>过程没太多的注意点，主要是尽量使用jdk1.7启动服务，高版本jdk启动容易出现问题</p>
+<p>运行安装home目录下startServer.bat启动服务器即可</p>
+<p><img src="/posts/27bfb602/y3.png" title="启动"><br><img src="/posts/27bfb602/y4.png" title="启动"></p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>这里用CC6链进行复现</p>
+<p><img src="/posts/27bfb602/y5.png" title="复现"></p>
+<h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>同样还是<code>NCInvokerServlet</code></p>
+<p><img src="/posts/27bfb602/y6.png" title="webxml"></p>
+<p>访问<code>/service/</code>和<code>/servlet/</code>目录下即可访问<code>NCInvokerServlet</code></p>
+<p><img src="/posts/27bfb602/y7.png" title="webxml"></p>
+<p>跟进<code>nc.bs.framework.server.InvokerServlet</code>，<code>get/post</code>都会调用<code>doAction</code>方法，<code>doAction</code>前半段获取<code>token</code>、<code>userCode</code>不重要，用不到这些字段。</p>
+<p><img src="/posts/27bfb602/y8.png" title="path取值"></p>
+<p>直接看下面部分，这里对<code>Path</code>路径有个取值逻辑</p>
+<p>若<code>path</code>以<code>/~</code>开头，则取值<code>/~</code>后的字符串，若该字符串存在<code>/</code>符号，则<code>/</code>前面的字符串赋值给<code>module</code>，<code>/</code>符号后面的字符赋值给<code>serviceName</code>，例如<code>path</code>路径为<code>/~modulename/servicename</code>，则<code>modulename</code>赋值给<code>module</code>，<code>servicename</code>赋值给<code>serviceName</code></p>
+<p><img src="/posts/27bfb602/y9.png" title="path取值"></p>
+<p>获取到模块<code>module</code>和服务名<code>serviceName</code>过后，调用<code>getServiceObject</code>方法获取服务对象</p>
+<p><img src="/posts/27bfb602/y10.png" title="获取服务对象"></p>
+<p><code>getServiceObject</code>方法开始判断<code>moduleName</code>是否为空，由于存在，因此进入<code>else</code>判断体</p>
+<p><img src="/posts/27bfb602/y11.png" title="getServiceObject"></p>
+<p>从<code>serviceObjMap</code>常量中获取<code>moduleName:serviceName</code>，由于并未添加该内容，因此此时返回给的<code>retObject</code>为<code>null</code></p>
+<p><img src="/posts/27bfb602/y13.png" title="retObject"></p>
+<p>接着获取模块<code>moduleName</code>的容器<code>Container</code>，为了后面的jndi调用</p>
+<p><img src="/posts/27bfb602/y14.png" title="获取modeleName容器"><br><img src="/posts/27bfb602/y15.png" title="获取modeleName容器"></p>
+<p>获取到容器后，再获取上下文器然后进行jndi调用，查询对象为<code>serviceName</code>,如果<code>serviceName</code>对象在jndi注册对象中不存在，则会抛出异常进入<code>catch</code>代码段，这里直接获取容器的类加载器，直接类加载<code>serviceName</code>，然后<code>newInstance()</code>实例化，因此找到<code>module</code>下存在实现反序列化功能的<code>serviceName</code>类，即可实例化触发反序列化漏洞</p>
+<p><img src="/posts/27bfb602/y16.png" title="实例化"></p>
+<p>因此该漏洞找到了<code>baseapp</code>模块下的<code>nc.message.bs.NCMessageServlet</code>类</p>
+<p><img src="/posts/27bfb602/y17.png" title="nc.message.bs.NCMessageServlet"></p>
+<p>实例化时调用父类的<code>doAction</code>方法，从而调用子类<code>nc.message.bs.NCMessageServlet</code>的<code>doAction</code>方法</p>
+<p><img src="/posts/27bfb602/y18.png" title="doAction"></p>
+<p>该类很直接，直接获取序列化输入流然后直接反序列化触发漏洞</p>
+<p><img src="/posts/27bfb602/y19.png" title="readObject"></p>
+<p>因此直接向该类发送序列化数据，即可直接反序列化触发漏洞</p>
+<p><img src="/posts/27bfb602/y5.png" title="复现"></p>
+<h1 id="0x06、漏洞修复"><a href="#0x06、漏洞修复" class="headerlink" title="0x06、漏洞修复"></a>0x06、漏洞修复</h1><p>官方以发布修复补丁：<br><a target="_blank" rel="noopener" href="https://security.yonyou.com/#/noticeInfo?id=293">https://security.yonyou.com/#/noticeInfo?id=293</a></p>
+<h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://nox.qianxin.com/article/590">https://nox.qianxin.com/article/590</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/825f317c.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-07 12:00:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                        #代码审计
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x05、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x06、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
+      
     </div>
   </div>
-  
 
   
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
 
   
-
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
   
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
 
         
 <div class="footer">
@@ -420,12 +582,12 @@
       </a>
       <div class="share-content hidden">
         
-          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + categories + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fcategories%2Findex.html + '" target="_blank" title="Twitter">
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + %E7%94%A8%E5%8F%8BNC%EF%BC%88NCMessageServlet%EF%BC%89%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0%E4%B8%8E%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F27bfb602.html + '" target="_blank" title="Twitter">
             <i class="iconfont icon-twitter"></i>
           </a>
         
         
-          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/categories/index.html" target="_blank" title="Facebook">
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/27bfb602.html" target="_blank" title="Facebook">
             <i class="iconfont icon-facebooksquare"></i>
           </a>
         
