@@ -4,7 +4,7 @@
   
     
     <entry>
-      <title>用友NC（NCMessageServlet）反序列化漏洞复现与分析</title>
+      <title>用友NC（NCMessageServlet）反序列化漏洞复现与原理分析</title>
       <link href="/posts/27bfb602.html"/>
       <url>/posts/27bfb602.html</url>
       
@@ -33,7 +33,7 @@
     
     
     <entry>
-      <title>泛微Ecology（CheckServer-SQL注入）漏洞复现与分析</title>
+      <title>泛微Ecology（CheckServer-SQL注入）漏洞复现与原理分析</title>
       <link href="/posts/825f317c.html"/>
       <url>/posts/825f317c.html</url>
       
@@ -112,7 +112,7 @@
     
     
     <entry>
-      <title>Weblogic远程代码执行漏洞（CVE-2023-21839）复现与分析</title>
+      <title>Weblogic远程代码执行漏洞（CVE-2023-21839）复现与原理分析</title>
       <link href="/posts/942fc3b7.html"/>
       <url>/posts/942fc3b7.html</url>
       
@@ -141,7 +141,7 @@
     
     
     <entry>
-      <title>Weblogic远程代码执行漏洞（CVE-2023-21931）复现与分析</title>
+      <title>Weblogic远程代码执行漏洞（CVE-2023-21931）复现与原理分析</title>
       <link href="/posts/5a99c827.html"/>
       <url>/posts/5a99c827.html</url>
       
@@ -170,7 +170,7 @@
     
     
     <entry>
-      <title>Apache-Superset身份认证绕过漏洞（CVE-2023-27524）复现与分析</title>
+      <title>Apache-Superset身份认证绕过漏洞（CVE-2023-27524）复现与原理分析</title>
       <link href="/posts/e817cb11.html"/>
       <url>/posts/e817cb11.html</url>
       
@@ -199,7 +199,7 @@
     
     
     <entry>
-      <title>Apache-Solr-RCE（CNVD-2023-27598）复现与分析</title>
+      <title>Apache-Solr-RCE（CNVD-2023-27598）复现与原理分析</title>
       <link href="/posts/5a99c826.html"/>
       <url>/posts/5a99c826.html</url>
       
@@ -228,7 +228,7 @@
     
     
     <entry>
-      <title>瑞友天翼应用虚拟化系统远程代码执行漏洞复现与分析</title>
+      <title>瑞友天翼应用虚拟化系统远程代码执行漏洞复现与原理分析</title>
       <link href="/posts/4669a499.html"/>
       <url>/posts/4669a499.html</url>
       
@@ -257,7 +257,7 @@
     
     
     <entry>
-      <title>Fineract-SQL注入漏洞(CVE-2023-25197)原理分析</title>
+      <title>Fineract-SQL注入漏洞(CVE-2023-25197)复现与原理分析</title>
       <link href="/posts/4669a496.html"/>
       <url>/posts/4669a496.html</url>
       
@@ -286,7 +286,7 @@
     
     
     <entry>
-      <title>Dubbo反序列化漏洞(CVE-2023-23638)复现与分析</title>
+      <title>Dubbo反序列化漏洞(CVE-2023-23638)复现与原理分析</title>
       <link href="/posts/3e6cbad8.html"/>
       <url>/posts/3e6cbad8.html</url>
       
@@ -315,7 +315,7 @@
     
     
     <entry>
-      <title>MinIO信息泄露(CVE-2023-28432)复现与分析</title>
+      <title>MinIO信息泄露(CVE-2023-28432)复现与原理分析</title>
       <link href="/posts/3e6cbad7.html"/>
       <url>/posts/3e6cbad7.html</url>
       
@@ -373,7 +373,7 @@
     
     
     <entry>
-      <title>Nacos身份认证绕过漏洞(QVD-2023-6271)复现与分析</title>
+      <title>Nacos身份认证绕过漏洞(QVD-2023-6271)复现与原理分析</title>
       <link href="/posts/ad3be142.html"/>
       <url>/posts/ad3be142.html</url>
       
