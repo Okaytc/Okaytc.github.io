@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      Apache-NiFi反序列化漏洞（CVE-2023-34212）原理分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Apache-NiFi反序列化漏洞（CVE-2023-34212）原理分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-30 14:50:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                    #代码审计
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Apache-NiFi反序列化漏洞（CVE-2023-34212）原理分析，直接从官网下载binary文件直接启动，docker创建的版本使用java11，会导致jndi注入失败，高版本绕过需要另外的环境依赖，以低版本java环境启动分析。简单来说就是一个单纯的jndi调用，但由于该漏洞需要经过身份验证，相对比较鸡肋，简单分析一下。</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>Apache NiFi 是一个开源的数据流处理和自动化工具， JndiJmsConnectionFactoryProvider 控制器组件用于配置 JMS 连接地址。<br>Apache NiFi 1.8.0 至 1.21.0 版本中，由于 JndiJmsConnectionFactoryProvider 控制器服务允许已授权的用户配置 URL 和库属性，经过身份验证的攻击者可在 ConnectionFactory 中将 JndiJmsConnectionFactoryProvider 的 JMS 连接地址配置为恶意的 JNDI 服务器，通过反序列化恶意构造的数据远程执行恶意代码。</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>1.8.0 &lt;&#x3D; Apache Nifi &lt;&#x3D; 1.21.0</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>nifi运行环境：java 1.8.0_66<br>idea调试环境：java 1.8.0_332(因为会涉及反射相关操作，低版本的java没有对应的源码不便于调试，下文会有说明)</p>
+<p>可以直接官网下载运行，其中Binary是直接编译好能运行的，Sources为源码<br><a target="_blank" rel="noopener" href="https://nifi.apache.org/download.html">https://nifi.apache.org/download.html</a></p>
+<p><img src="/posts/4660f8a4/n1.png" title="组件下载"></p>
+<p>下载完运行bin目录下的run-nifi.bat启动即可，默认无需更改其它配置</p>
+<p><img src="/posts/4660f8a4/n2.png" title="运行"></p>
+<p>在启动过后，在logs日志文件夹下的nifi-app.log日志文件中可以查看登录账号密码以及启动状态</p>
+<p><img src="/posts/4660f8a4/n3.png" title="查看配置"><br><img src="/posts/4660f8a4/n4.png" title="账号密码"></p>
+<p>看到http地址以及服务成功启动则表示正常启动，浏览器访问本地8443端口即可访问nifi服务</p>
+<p><img src="/posts/4660f8a4/n5.png" title="启动成功"><br><img src="/posts/4660f8a4/n6.png" title="启动成功"></p>
+<p>调试环境：<br>编辑conf目录下bootstrap.conf文件，将debug取消注释修改为idea远程debug端口即可</p>
+<p><img src="/posts/4660f8a4/n17.png" title="配置"><br><img src="/posts/4660f8a4/n18.png" title="配置"></p>
+<p>重启nifi服务后，导入nifi源码，idea配置debug后即可连接调试</p>
+<p><img src="/posts/4660f8a4/n20.png" title="debug"><br><img src="/posts/4660f8a4/n19.png" title="debug"></p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>恶意类class:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EvilPayload2</span>&#123;</span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Runtime.getRuntime().exec(<span class="string">&quot;calc.exe&quot;</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">	</span><br><span class="line">	 <span class="keyword">public</span> <span class="title function_">EvilPayload2</span><span class="params">()</span> <span class="keyword">throws</span> Exception&#123;</span><br><span class="line">        Runtime.getRuntime().exec(<span class="string">&quot;calc.exe&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">	 <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>开启ldap服务，设置恶意类</p>
+<p><img src="/posts/4660f8a4/n40.png" title="ldap开启"></p>
+<p>在nifi flow配置添加JndiJmsConnectionFactoryProvider功能组件</p>
+<p><img src="/posts/4660f8a4/n12.png" title="配置属性"></p>
+<p>JndiJmsConnectionFactoryProvider工件配置jndi属性</p>
+<p><img src="/posts/4660f8a4/n11.png" title="配置属性"></p>
+<p>ConsumeJMS组件添加JndiJmsConnectionFactoryProvider工件，并随便设置一个Destination Name</p>
+<p><img src="/posts/4660f8a4/n10.png" title="执行漏洞"></p>
+<p>启动ConsumJMS，触发jndi调用并执行漏洞</p>
+<p><img src="/posts/4660f8a4/n13.png" title="配置属性"><br><img src="/posts/4660f8a4/n7.png" title="执行漏洞"></p>
+<p>dns请求：</p>
+<p><img src="/posts/4660f8a4/n9.png" title="执行漏洞"></p>
+<h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>在该漏洞描述中，漏洞原因描述的比较清楚，<strong>由于 JndiJmsConnectionFactoryProvider 控制器服务允许已授权的用户配置 URL 和库属性，经过身份验证的攻击者可在 ConnectionFactory 中将 JndiJmsConnectionFactoryProvider 的 JMS 连接地址配置为恶意的 JNDI 服务器，通过反序列化恶意构造的数据远程执行恶意代码</strong>。也就是官方提供了一个jndijms的连接服务，可以让下面的组件通过该服务去请求jndi，由于没有对jndi做限制（除java版本限制外），导致jndi远程调用恶意代码触发漏洞。</p>
+<p>分析前idea需要导入源码中的nifi-framework-bundle文件夹和nifi-jms-bundle文件夹，JndiJmsConnectionFactoryProvider和ConsumeJMS的相关实现和调用主要就来源这两个文件夹。</p>
+<p><img src="/posts/4660f8a4/n39.png" title="相关文件"></p>
+<hr>
+<p>接着简单分析源码</p>
+<p><code>JndiJmsConnectionFactoryProvider</code>控制组件提供了jndi调用接口，可配置远程jndi地址</p>
+<p><img src="/posts/4660f8a4/n11.png" title="配置属性"></p>
+<p>下属组件（ConsumeJMS）可以将<code>JndiJmsConnectionFactoryProvider</code>组件作为配置环境，在启动该组件时调用<code>JndiJmsConnectionFactoryProvider</code>组件的jndi调用接口</p>
+<p><img src="/posts/4660f8a4/n16.png" title="配置属性"></p>
+<p>代码跟进一下，在用户配置了jndi属性过后，启动<code>JndiJmsConnectionFactoryProvider</code>组件服务，会调用<code>onEabled</code>方法，再将<code>Context</code>配置内容通过调用<code>JndiJmsConnectionFactoryHandler</code>方法传入</p>
+<p><img src="/posts/4660f8a4/n11.png" title="配置属性"><br><img src="/posts/4660f8a4/n21.png" title="配置属性"></p>
+<p>配置内容的表字段属性赋值给<code>propertyDescriptors</code>字段</p>
+<p><img src="/posts/4660f8a4/n22.png" title="配置属性"></p>
+<p>然后再通过自身的一些方法最后启动<code>JndiJmsConnectionFactoryProvider</code>组件服务</p>
+<p><img src="/posts/4660f8a4/n23.png" title="启动"></p>
+<hr>
+<p>接着再看<code>ConsumeJMS</code>组件的调用过程，<code>ConsumeJMS</code>组件配置完<code>JndiJmsConnectionFactoryProvider</code>后，开启<code>ConsumeJMS</code>，其中主要进程进入<code>FlowEngine.wrap</code>方法，当中的<code>run</code>方法启动（查找方式通过执行报错信息逆推调用流程）</p>
+<p><img src="/posts/4660f8a4/n24.png" title="ConsumeJMS启动"></p>
+<p>调用<code>AbstractProcessor.onTrigger</code>方法，参数为<code>ConsumeJMS</code>组件的所有属性集合的对象<code>context</code></p>
+<p><img src="/posts/4660f8a4/n25.png" title="onTrigger"></p>
+<p>继续跟进调用<code>buildTargetResource</code>方法</p>
+<p><img src="/posts/4660f8a4/n26.png" title="buildTargetResource"></p>
+<p>该方法中会通过配置的<code>JndiJmsConnectionFactoryProvider</code>组件进行jndi连接工厂（这里需要稍微高点的java版本这里使用java1.8.0_332，低版本java调试到这过后无法跟进下一步查看准确的执行位置）</p>
+<p><img src="/posts/4660f8a4/n28.png" title="连接工厂"></p>
+<p>调用栈:</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">invoke:<span class="number">85</span>, StandardControllerServiceInvocationHandler (org.apache.nifi.controller.service)</span><br><span class="line">getConnectionFactory:-<span class="number">1</span>, $Proxy83 (com.sun.proxy)</span><br><span class="line">buildTargetResource:<span class="number">298</span>, AbstractJMSProcessor (org.apache.nifi.jms.processors)</span><br><span class="line">onTrigger:<span class="number">200</span>, AbstractJMSProcessor (org.apache.nifi.jms.processors)</span><br><span class="line">onTrigger:<span class="number">27</span>, AbstractProcessor (org.apache.nifi.processor)</span><br><span class="line">onTrigger:<span class="number">1360</span>, StandardProcessorNode (org.apache.nifi.controller)</span><br><span class="line">invoke:<span class="number">246</span>, ConnectableTask (org.apache.nifi.controller.tasks)</span><br><span class="line">run:<span class="number">102</span>, TimerDrivenSchedulingAgent$<span class="number">1</span> (org.apache.nifi.controller.scheduling)</span><br><span class="line">run:<span class="number">110</span>, FlowEngine$<span class="number">2</span> (org.apache.nifi.engine)</span><br><span class="line">call:<span class="number">511</span>, Executors$RunnableAdapter (java.util.concurrent)</span><br><span class="line">runAndReset:<span class="number">308</span>, FutureTask (java.util.concurrent)</span><br><span class="line">access$<span class="number">301</span>:<span class="number">180</span>, ScheduledThreadPoolExecutor$ScheduledFutureTask (java.util.concurrent)</span><br><span class="line">run:<span class="number">294</span>, ScheduledThreadPoolExecutor$ScheduledFutureTask (java.util.concurrent)</span><br><span class="line">runWorker:<span class="number">1142</span>, ThreadPoolExecutor (java.util.concurrent)</span><br><span class="line">run:<span class="number">617</span>, ThreadPoolExecutor$Worker (java.util.concurrent)</span><br><span class="line">run:<span class="number">745</span>, Thread (java.lang)</span><br></pre></td></tr></table></figure>
+
+<p>跟进调用<code>StandardControllerServicelnvocationHandler.getConnectionFactory</code>方法，由于该类使用动态代理，因此会先进入<code>invoke</code>方法</p>
+<p><img src="/posts/4660f8a4/n29.png" title="StandardControllerServicelnvocationHandler"></p>
+<p>该方法主要调用<code>jndiJmsConnectionFactoryProvider</code>组件的类和类加载，以及<code>ConsumeJMS</code>的类加载器，接着调用<code>invoke</code>方法</p>
+<p><img src="/posts/4660f8a4/n30.png" title="invoke"></p>
+<p>反射调用<code>jndiJmsConnectionFactoryProvider.getConnectionFactory</code>方法</p>
+<p><img src="/posts/4660f8a4/n31.png" title="getConnectionFactory"></p>
+<p>跟进接着调用<code>lookupConnectionFactory</code>方法</p>
+<p><img src="/posts/4660f8a4/n32.png" title="lookupConnectionFactory"></p>
+<p>先是从<code>context</code>中获取工厂名</p>
+<p><img src="/posts/4660f8a4/n33.png" title="获取工厂名"></p>
+<p>然后初始化上下文</p>
+<p><img src="/posts/4660f8a4/n35.png" title="获取工厂名"></p>
+<p>同样从<code>context</code>中获取jndi地址、jndi初始化工厂类等信息</p>
+<p><img src="/posts/4660f8a4/n36.png" title="初始化上下文"></p>
+<p>最后获取到上下文后，进行jndi调用，调用<code>lookup</code>方法，触发漏洞</p>
+<p><img src="/posts/4660f8a4/n37.png" title="调用lookup"><br><img src="/posts/4660f8a4/n38.png" title="触发漏洞"></p>
+<h1 id="0x06、漏洞修复"><a href="#0x06、漏洞修复" class="headerlink" title="0x06、漏洞修复"></a>0x06、漏洞修复</h1><p>将 org.apache.nifi:nifi 升级至 1.22.0 及以上版本，官方已更新最新版本：<br>官方连接：<a target="_blank" rel="noopener" href="https://nifi.apache.org/download.html">https://nifi.apache.org/download.html</a></p>
+<p>修复方式：</p>
+<ul>
+<li>添加了jndi Schemes限制，只允许JndiJmsProvider调用（file、jgroups、t3、t3s、tcp、ssl、udp、vm）这几个协议，禁止调用rmi、ldap等白名单之外的协议</li>
+</ul>
+<p><img src="/posts/4660f8a4/n14.png" title="新增限制"><br><img src="/posts/4660f8a4/n15.png" title="新增限制"></p>
+<h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://github.com/apache/nifi/commit/3fcb82ee4509d1ad73893d8dca003be6d086c5d6">https://github.com/apache/nifi/commit/3fcb82ee4509d1ad73893d8dca003be6d086c5d6</a><br><a target="_blank" rel="noopener" href="https://nvd.nist.gov/vuln/detail/CVE-2023-34212">https://nvd.nist.gov/vuln/detail/CVE-2023-34212</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/835f317c.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-30 14:50:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                        #代码审计
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x05、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x06、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + Apache-NiFi%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%EF%BC%88CVE-2023-34212%EF%BC%89%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F4660f8a4.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/4660f8a4.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
