@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="Okaytc" />
+  <meta name="description" content="生活 健身 学习 沉淀" />
+  
+  
+  <title>
+    
+      Apache-RocketMQ远程代码执行漏洞(CVE-2023-37582)原理分析 
+      
+      
+      |
+    
+     Okaytc
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/head-3.jpg">
+    <link rel="icon" href="/images/head-3.jpg">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+    
+<link rel="stylesheet" href="/css/figcaption/mac-block.css">
+
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img src="/images/head-3.jpg" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">Okaytc</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">主页</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">文章</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">标签</a>
+        </li>
+      
+        <li class="nav-item" data-path="/friends/">
+          <a href="/friends/">友链</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">关于</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Apache-RocketMQ远程代码执行漏洞(CVE-2023-37582)原理分析</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-07-25 11:00:00
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                    #漏洞复现
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                    #代码审计
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="0x00、前言"><a href="#0x00、前言" class="headerlink" title="0x00、前言"></a>0x00、前言</h1><p>Apache-RocketMQ远程代码执行漏洞(CVE-2023-37582)原理分析，该漏洞为历史漏洞（CVE-2023-33246）补丁未修复完全，导致可以向nameserver发送更新配置信息从而写入文件。</p>
+<p>回顾上个月的历史漏洞（CVE-2023-33246）原理：<br>由于RocketMq未对不同角色访问做严格的身份验证，攻击者可伪造成RocketMq管理端向服务器的broker（代理服务器）发送更新Broker配置更新请求，请求中包含了恶意代码，broker server接收到更新请求会调用callshell导致恶意代码执行。</p>
+<h1 id="0x01、漏洞描述"><a href="#0x01、漏洞描述" class="headerlink" title="0x01、漏洞描述"></a>0x01、漏洞描述</h1><p>Apache RocketMQ是一款开源的分布式消息和流处理平台，提供了高效、可靠、可扩展的低延迟消息和流数据处理能力，广泛用于异步通信、应用解耦、系统集成以及大数据、实时计算等场景。</p>
+<p>Apache RocketMQ远程代码执行漏洞(CVE-2023-37582)细节及POC已公开，由于历史漏洞（CVE-2023-33246）未修复完全，最终可以RocketMQ运行的系统用户身份执行任意命令。</p>
+<h1 id="0x02、漏洞范围"><a href="#0x02、漏洞范围" class="headerlink" title="0x02、漏洞范围"></a>0x02、漏洞范围</h1><p>Apache RocketMQ &lt;&#x3D; 5.1.1</p>
+<h1 id="0x03、环境搭建"><a href="#0x03、环境搭建" class="headerlink" title="0x03、环境搭建"></a>0x03、环境搭建</h1><p>这里直接拉取docker镜像</p>
+<pre><code>docker pull apache/rocketmq:5.1.1
+</code></pre>
+<p>启动nameserver</p>
+<pre><code>docker run -it --net=host apache/rocketmq:5.1.1 ./mqnamesrv
+</code></pre>
+<p><img src="/posts/6ddf0279/a2.png" title="启动nameserver"></p>
+<p>idea调试：<br>进入docker容器，修改启动配置文件（runbroker.sh、runserver.sh）</p>
+<p><img src="/posts/6ddf0279/r3.png" title="修改配置文件"></p>
+<p>添加idea debug jvm远程调试的代码</p>
+<p><img src="/posts/6ddf0279/r2.png" title="调试代码"></p>
+<p>然后重启docker容器即可</p>
+<pre><code>docker restart &lt;ContainerId&gt;
+</code></pre>
+<p>idea开启debug即可调试</p>
+<p><img src="/posts/6ddf0279/r5.png" title="调试"></p>
+<p>（如果debug连接出现握手失败，换个调试端口）</p>
+<h1 id="0x04、漏洞复现"><a href="#0x04、漏洞复现" class="headerlink" title="0x04、漏洞复现"></a>0x04、漏洞复现</h1><p>已公开对应的检测<a target="_blank" rel="noopener" href="https://github.com/Malayke/CVE-2023-37582_EXPLOIT">exp</a>:</p>
+<p><img src="/posts/6ddf0279/a23.png" title="poc"><br><img src="/posts/6ddf0279/a1.png" title="写入文件"><br><img src="/posts/6ddf0279/a21.png" title="写入文件"></p>
+<h1 id="0x05、原理分析"><a href="#0x05、原理分析" class="headerlink" title="0x05、原理分析"></a>0x05、原理分析</h1><p>RocketMQ-NameServer源码可参考<a target="_blank" rel="noopener" href="https://blog.51cto.com/u_14291117/6169396">文章</a>，文章中对nameserver的启动、功能、执行流程有很清晰的描述</p>
+<p>引用一张上文中nameserver的时序流程图</p>
+<p><img src="/posts/6ddf0279/a4.webp" title="时序图"></p>
+<p>可以看到nameserver通过<code>NamesrvStartup</code>类进行启动，启动的源码很好跟进，不多叙述，重点在接收请求的处理类<code>DefaultRequestProcessor</code>也就是图中的步骤10</p>
+<p>通过建立连接，获取请求的<code>code</code>值，通过<code>code</code>值的的不同进入不同的处理分支。</p>
+<p><img src="/posts/6ddf0279/a5.png" title="接受code"></p>
+<p>当<code>code</code>值为<code>UPDATE_NAMESRV_CONFIG</code>，也就是<code>318</code>时，会调用<code>updateConfig</code>方法用于更新配置</p>
+<p><img src="/posts/6ddf0279/a6.png" title="UPDATE_NAMESRV_CONFIG"><br><img src="/posts/6ddf0279/a7.png" title="UPDATE_NAMESRV_CONFIG"></p>
+<p><code>updateConfig</code>方法会获取请求体的内容，将请求体内容转化为字符串</p>
+<p><img src="/posts/6ddf0279/a8.png" title="获取请求体内容"></p>
+<p>将请求体配置内容存放进环境配置变量<code>properties</code>中，随后判断如果配置内容key中存在<code>kvConfigPath</code>和<code>configStorePathName</code>，则直接返回，无法更新配置</p>
+<p><img src="/posts/6ddf0279/a9.png" title="properties"></p>
+<p>该黑名单匹配为历史漏洞（CVE-2023-33246）补丁修复添加的，为了杜绝可能存在风险的更新配置功能点，在一些控制管理和角色组件中添加了黑名单，与此同时还添加了其它的黑名单匹配来防止更新配置文件</p>
+<p><img src="/posts/6ddf0279/a10.png" title="黑名单"><br><img src="/posts/6ddf0279/a11.png" title="黑名单"></p>
+<p>在nameserver角色组件中，过滤了上图中的<code>kvConfigPath</code>和<code>configStorePathName</code>字段，但是没有过滤<code>configStorePath</code>字段，导致仍可使用<code>configStorePath</code>字段进行更新配置文件，导致的补丁绕过，接着往下跟进</p>
+<p>在获取到配置内容后，调用<code>update</code>更新</p>
+<p><img src="/posts/6ddf0279/a12.png" title="update"></p>
+<p>通过<code>mergeIfExist</code>方法将<code>properties</code>信息添加到<code>allConfigs</code>中，前提是<code>properties</code>中的key值必须在<code>allConfigs</code>hash表中存在才能覆盖表中的原有值</p>
+<p><img src="/posts/6ddf0279/a14.png" title="allconfigs"></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">mergeIfExist</span><span class="params">(Properties from, Properties to)</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (Entry&lt;Object, Object&gt; next : from.entrySet()) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!to.containsKey(next.getKey())) &#123;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="type">Object</span> <span class="variable">fromObj</span> <span class="operator">=</span> next.getValue(), toObj = to.get(next.getKey());</span><br><span class="line">            <span class="keyword">if</span> (toObj != <span class="literal">null</span> &amp;&amp; !toObj.equals(fromObj)) &#123;</span><br><span class="line">                log.info(<span class="string">&quot;Replace, key: &#123;&#125;, value: &#123;&#125; -&gt; &#123;&#125;&quot;</span>, next.getKey(), toObj, fromObj);</span><br><span class="line">            &#125;</span><br><span class="line">            to.put(next.getKey(), fromObj);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>添加过后，<code>allconfigs</code>包含了所有的配置信息包括我们请求体中的配置信息</p>
+<p><img src="/posts/6ddf0279/a15.png" title="allconfigs"></p>
+<p>接下来需要找到<code>allconfigs</code>配置信息中可控的元素，来实现对文件内容的可控，这里找到了配置变量<code>productEnvName</code>，通过<code>productEnvName</code>变量的可控，实现对写入内容的可控，由于已经运行过payload，因此value值为写入的测试数据。</p>
+<p>原理上只要是<code>allconfigs</code>hash表中的字符串类型元素，且不影响下面反射赋值后对写入产生影响的元素均可以作为文件内容的可控元素。</p>
+<p><img src="/posts/6ddf0279/a22.png" title="productEnvName"></p>
+<p>但此时，并未在系统中更改对应<code>configStorePath</code>配置属性的值，只是将请求体信息添加更新到<code>allconfigs</code>中，作为写入的内容而已</p>
+<p>接着调用<code>properties2Object</code>方法，通过反射调用存在<code>set</code>前缀的属性方法，这里通过调用<code>setconfigStorePath</code>方法对<code>configStorePath</code>字段进行赋值，实现对文件写入路径的可控</p>
+<p><img src="/posts/6ddf0279/a13.png" title="properties2Object"><br><img src="/posts/6ddf0279/a16.png" title="反射修改configStorePath"><br><img src="/posts/6ddf0279/a17.png" title="反射修改configStorePath"></p>
+<p>接着调用<code>persist</code>方法</p>
+<p><img src="/posts/6ddf0279/a18.png" title="persist"></p>
+<p>获取到<code>allconfigs</code>信息后，调用<code>MixAll.string2File</code>方法<code>allconfigs</code>信息将写入指定的<code>configStorePath</code>目录文件中，深入利用还可以将写入路径改为linux计划任务中，实现自启动执行命令</p>
+<p><img src="/posts/6ddf0279/a19.png" title="写入文件"></p>
+<p>路径通过反射获取<code>configStorePath</code>的值</p>
+<p><img src="/posts/6ddf0279/a24.png" title="反射获取configStorePath"></p>
+<p>最后将<code>allconfigs</code>配置信息写入<code>configStorePath</code>路径文件中</p>
+<p><img src="/posts/6ddf0279/a1.png" title="写入文件"><br><img src="/posts/6ddf0279/a21.png" title="写入文件"></p>
+<p>payload的数据包，<code>configStorePath</code>路径和<code>productEnvName</code>内容可控，可实现任意文件的写入</p>
+<p><img src="/posts/6ddf0279/a25.png" title="数据包"></p>
+<h1 id="0x06、漏洞修复"><a href="#0x06、漏洞修复" class="headerlink" title="0x06、漏洞修复"></a>0x06、漏洞修复</h1><p>目前官方已发布安全版本，建议受影响用户升级至：<br>RocketMQ 5.x &gt;&#x3D; 5.1.2<br>RocketMQ 4.x &gt;&#x3D; 4.9.7 </p>
+<p>官方补丁下载地址：<br><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/download/">https://rocketmq.apache.org/download/</a></p>
+<p>修复方式：</p>
+<ul>
+<li>黑名单匹配添加configStorePath字段，用户请求中包括configStorePath字段将无法进行配置更新请求</li>
+</ul>
+<p><img src="/posts/6ddf0279/a26.png" title="configStorePath"></p>
+<h1 id="0x07、参考链接"><a href="#0x07、参考链接" class="headerlink" title="0x07、参考链接"></a>0x07、参考链接</h1><p><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/commit/9d411cf04a695e7a3f41036e8377b0aa544d754d">https://github.com/apache/rocketmq/commit/9d411cf04a695e7a3f41036e8377b0aa544d754d</a><br><a target="_blank" rel="noopener" href="https://blog.51cto.com/search/user?uid=14281117&amp;q=rocketmq">https://blog.51cto.com/search/user?uid=14281117&amp;q=rocketmq</a><br><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/commit/c1fdf1d62c627d6cfbae06d0e15f1c23c7be654b">https://github.com/apache/rocketmq/commit/c1fdf1d62c627d6cfbae06d0e15f1c23c7be654b</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/posts/4660f8a4.html" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-07-25 11:00:00
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" title="漏洞复现">
+                        #漏洞复现
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" title="代码审计">
+                        #代码审计
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#0x00%E3%80%81%E5%89%8D%E8%A8%80"><span class="toc-text">0x00、前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x01%E3%80%81%E6%BC%8F%E6%B4%9E%E6%8F%8F%E8%BF%B0"><span class="toc-text">0x01、漏洞描述</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x02%E3%80%81%E6%BC%8F%E6%B4%9E%E8%8C%83%E5%9B%B4"><span class="toc-text">0x02、漏洞范围</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x03%E3%80%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-text">0x03、环境搭建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x04%E3%80%81%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-text">0x04、漏洞复现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x05%E3%80%81%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="toc-text">0x05、原理分析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x06%E3%80%81%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D"><span class="toc-text">0x06、漏洞修复</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#0x07%E3%80%81%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">0x07、参考链接</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: '5WzQHrZA6gNtoCZa9qWZkFjv-gzGzoHsz',
+        appKey: 'O1mOg3eUPYzPIUYEaX54ip6s',
+        placeholder: 'here',
+        avatar: 'monsterid',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" target="_blank" rel="noopener" href="https://github.com/Okaytc">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">Copyright © Okaytc 2022</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://okaytc.github.io/">一个热爱健身的脚本小子</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索...">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+  
+    <div class="share-icon tools-bar-item">
+      <a href="javascript: void(0)" id="share-icon">
+        <i class="iconfont iconshare"></i>
+      </a>
+      <div class="share-content hidden">
+        
+          <a class="share-item" href="https://twitter.com/intent/tweet?text=' + Apache-RocketMQ%E8%BF%9C%E7%A8%8B%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E(CVE-2023-37582)%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90 + '&url=' + https%3A%2F%2Fokaytc.github.io%2Fposts%2F6ddf0279.html + '" target="_blank" title="Twitter">
+            <i class="iconfont icon-twitter"></i>
+          </a>
+        
+        
+          <a class="share-item" href="https://www.facebook.com/sharer.php?u=https://okaytc.github.io/posts/6ddf0279.html" target="_blank" title="Facebook">
+            <i class="iconfont icon-facebooksquare"></i>
+          </a>
+        
+      </div>
+    </div>
+  
+  
+<script src="/js/shares.js"></script>
+
+
+
+      </div>
+    </div>
+  </body>
+</html>
